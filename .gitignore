@@ -1,0 +1,71 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.manifest
+*.spec
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+*.env
+.env.*
+
+# FastAPI / Uvicorn logs
+*.log
+
+# Bytecode cache
+.pytest_cache/
+.cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Coverage
+.coverage
+htmlcov/
+covhtml/
+*.cover
+*.py,cover
+
+# Jupyter / notebooks (if you use them for testing API)
+.ipynb_checkpoints
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Databases
+*.db
+*.sqlite3
+
+# Docker
+*.pid
+*.seed
+docker-compose.override.yml
+
+# Node (if using with frontend in same repo)
+node_modules/
+npm-debug.log
+yarn-error.log
+.pnpm-debug.log
+
+# Alembic (if using migrations)
+alembic/versions/*.pyc
+alembic/versions/__pycache__/
