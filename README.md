@@ -72,12 +72,12 @@ Todos los endpoints están bajo el prefijo:
 ### 1. Obtener todos los usuarios
 **GET** `/users/`  
 Devuelve la lista de todos los usuarios.  
-- Parámetro opcional: `activo` (`true` o `false`) para filtrar usuarios.  
+- Parámetro opcional: `active` (`true` o `false`) para filtrar usuarios.  
 
 **Ejemplo de uso:**  
 ```bash
 GET http://localhost:8000/users/
-GET http://localhost:8000/users/?activo=true
+GET http://localhost:8000/users/?active=true
 ```
 ### 2. Obtener un usuario por ID
 **GET** `/users/{user_id}`
@@ -103,9 +103,9 @@ Content-Type: application/json
 ```bash
 {
   "id": 4,
-  "nombre": "Laura",
+  "name": "Laura",
   "email": "laura@example.com",
-  "activo": true
+  "active": true
 }
 ```
 
@@ -126,9 +126,9 @@ Content-Type: application/json
 ```
 {
   "id": 1,
-  "nombre": "Alex González",
+  "name": "Alex González",
   "email": "alexg@example.com",
-  "activo": true
+  "active": true
 }
 ```
 
