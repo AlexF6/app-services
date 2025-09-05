@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException
 from schemas.series import Serie
 
 router = APIRouter(prefix="/series", tags=["Series"])
@@ -11,14 +11,6 @@ series = [
     {"id": 5, "name": "The Witcher", "seasons": 3, "active": True},
 ]
 
-# Read
-# users index
-@router.get("/", response_model=list[Serie])
-def list_all_series(active: bool | None = None):
-    if active is None:
-        return series
-    return [u for u in series if u["active"] == active]
-
 # Show
 @router.get("/{serie_id}", response_model=Serie)
 def get_serie(serie_id: int):
@@ -27,10 +19,14 @@ def get_serie(serie_id: int):
             return serie
     raise HTTPException(status_code=404, detail="Serie not found")
 
-# Create
-@router.post("/", status_code=201)
-async def create_serie(serie: Serie):
-    return {"message": "Serie creada", "serie": serie}
+# Read
+# users index
+@router.get("/", response_model=list[Serie])
+def list_all_series(active: bool | None = None):
+    if active is None:
+        return series
+    return [u for u in series if u["active"] == active]
+
 
 # Update
 @router.put("/{serie_id}", response_model=Serie)
@@ -41,6 +37,13 @@ def update_serie(serie_id: int, updated_serie: Serie):
             return series[index]
     
     raise HTTPException(status_code=404, detail="Serie not found")
+
+
+# Create
+@router.post("/", status_code=201)
+async def create_serie(serie: Serie):
+    return {"message": "Serie Created", "serie": serie}
+
 
 # Delete
 @router.delete("/{serie_id}", status_code=204)
