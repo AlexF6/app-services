@@ -44,7 +44,7 @@ def update_serie(serie_id: int, updated_serie: Serie):
 
 # Delete
 @router.delete("/{serie_id}", status_code=204)
-def delete_user(serie_id: int):
+def delete_serie(serie_id: int):
     for index, user in enumerate(series):
         if user["id"] == serie_id:
             series.pop(index)
