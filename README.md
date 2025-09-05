@@ -2,7 +2,7 @@
 
 Este proyecto consiste en el desarrollo de una plataforma de streaming que permite a los usuarios registrarse, autenticar su cuenta y acceder a un catálogo de contenidos audiovisuales (películas, series y documentales).
 
-## 🗂️ Arquitectura del Proyecto  
+## Arquitectura del Proyecto  
 
 La organización del proyecto sigue una estructura modular que facilita la escalabilidad y el mantenimiento del código:  
 
@@ -142,6 +142,87 @@ Elimina un usuario por id.
 ```bash
 DELETE http://localhost:8000/users/2
 ```
+
+## Endpoints para series
+
+### 1. Obtener todas las series
+**GET** `/series/`  
+Devuelve la lista de todas las series.  
+- Parámetro opcional: `active` (`true` o `false`) para filtrar series.  
+
+**Ejemplo de uso:**  
+```bash
+GET http://localhost:8000/series/
+GET http://localhost:8000/series/?active=true
+```
+
+---
+
+### 2. Obtener una serie por ID
+**GET** `/series/{serie_id}`  
+Devuelve una serie específica por su id.  
+
+**Ejemplo de uso:**  
+```bash
+GET http://127.0.0.1:8000/series/1
+```
+
+---
+
+### 3. Crear una nueva serie
+**POST** `/series/`  
+Crea una nueva serie.  
+
+**Ejemplo de uso:**  
+```bash
+POST http://localhost:8000/series/
+Content-Type: application/json
+```
+
+**Body**  
+```json
+{
+  "id": 6,
+  "name": "Better Call Saul",
+  "seasons": 6,
+  "active": true
+}
+```
+
+---
+
+### 4. Actualizar una serie
+**PUT** `/series/{serie_id}`  
+Actualiza los datos de una serie existente.  
+
+**Ejemplo de uso:**  
+```bash
+PUT http://localhost:8000/series/1
+Content-Type: application/json
+```
+
+**Body**  
+```json
+{
+  "id": 1,
+  "name": "Breaking Bad",
+  "seasons": 5,
+  "active": true
+}
+```
+
+---
+
+### 5. Eliminar una serie
+**DELETE** `/series/{serie_id}`  
+Elimina una serie por id.  
+
+**Ejemplo de uso:**  
+```bash
+DELETE http://localhost:8000/series/2
+```
+
+
 ## Autores
 ALEXSANDER GONZALEZ
 
