@@ -11,10 +11,14 @@ APP-SERVICES/
 │── api/v1/              # Contiene los endpoints de la API (versión 1)
 │   │── __init__.py      # Marca el directorio como un paquete de Python
 │   │── users.py         # Rutas y controladores relacionados con usuarios
+│   │── series.py        # Rutas y controladores relacionados con series
+│   │── subscriptions.py # Rutas y controladores relacionados con subscripciones
 │
 │── schemas/             # Definición de modelos y validaciones (Pydantic)
 │   │── __init__.py      # Inicializa el paquete schemas
 │   │── users.py         # Esquema de datos para usuarios
+│   │── series.py        # Esquema de datos para series
+│   │── subscriptions.py # Esquema de datos para subscripciones
 │
 │── main.py              # Punto de entrada principal de la aplicación FastAPI
 │── requirements.txt     # Dependencias del proyecto
