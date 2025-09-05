@@ -1,27 +1,5 @@
-from typing import Union
 from fastapi import FastAPI
-from pydantic import BaseModel
+from api.v1.users import router as users_router
 
-app = FastAPI()
-
-class Item(BaseModel):
-    name: str
-    description: Union[str, None] = None
-    price: float
-    tax: Union[float, None] = None
-
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
-
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: Union[str, None] = None):
-    return {"item_id": item_id, "q": q}
-
-@app.post("/items/")
-def create_item(item: Item):
-    return {"message": "Item creado con éxito", "item": item}
-
-@app.put("/items/{item_id}")
-def update_item(item_id: int, item: Item):
-    return {"message": f"Item {item_id} actualizado", "item": item}
+app = FastAPI(title="API")
+app.include_router(users_router)
