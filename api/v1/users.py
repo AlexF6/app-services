@@ -26,7 +26,7 @@ def get_user(user_id: int):
     raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
 # Create
-@router.post("/", status_code=201, response_model=User)
+@router.post("/", status_code=201)
 async def create_user(user: User):
     return {"message": "Usuario creado", "user": user}
 
