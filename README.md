@@ -49,6 +49,12 @@ APP-SERVICES/
         source .venv/bin/activate
         ```
 
+3.  Instalar dependencias
+
+``` bash
+pip install "fastapi[standard]"
+```
+
 ## Ejecución
 
 Ejecuta el servidor con Uvicorn desde la raíz del proyecto:
