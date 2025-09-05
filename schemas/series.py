@@ -1,8 +1,8 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 
-class User(BaseModel):
+class Serie(BaseModel):
   id: int
   name: str
-  email: Optional[EmailStr] = None
+  seasons: int
   active: bool = True
