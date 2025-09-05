@@ -1,12 +1,32 @@
-# Mini API (FastAPI)
+## Servicio de Streaming
 
-API de ejemplo muy sencilla hecha con **FastAPI**. Expone dos endpoints
-básicos y sirve como punto de partida para proyectos más grandes.
+Este proyecto consiste en el desarrollo de una plataforma de streaming que permite a los usuarios registrarse, autenticar su cuenta y acceder a un catálogo de contenidos audiovisuales (películas, series y documentales).
 
-## Características
+## Arquitectura del Proyecto  
 
--   **Root**: mensaje de bienvenida
--   **Items**: obtener un ítem por ID, con opción de query param
+La organización del proyecto sigue una estructura modular que facilita la escalabilidad y el mantenimiento del código:  
+
+```bash
+APP-SERVICES/
+│── api/v1/              # Contiene los endpoints de la API (versión 1)
+│   │── __init__.py      # Marca el directorio como un paquete de Python
+│   │── users.py         # Rutas y controladores relacionados con usuarios
+│   │── series.py        # Rutas y controladores relacionados con series
+│   │── subscriptions.py # Rutas y controladores relacionados con subscripciones
+│
+│── schemas/             # Definición de modelos y validaciones (Pydantic)
+│   │── __init__.py      # Inicializa el paquete schemas
+│   │── users.py         # Esquema de datos para usuarios
+│   │── series.py        # Esquema de datos para series
+│   │── subscriptions.py # Esquema de datos para subscripciones
+│
+│── main.py              # Punto de entrada principal de la aplicación FastAPI
+│── requirements.txt     # Dependencias del proyecto
+│── README.md            # Documentación del proyecto
+│── .gitignore           # Archivos/carpetas ignoradas por Git
+│── .venv/               # Entorno virtual de Python
+│── __pycache__/         # Archivos compilados automáticamente por Python
+```
 
 ## Requisitos
 
@@ -29,74 +49,191 @@ básicos y sirve como punto de partida para proyectos más grandes.
     -   Linux / macOS (bash/zsh):
 
         ``` bash
-        python -m venv .venv
+        python3 -m venv .venv
         source .venv/bin/activate
         ```
 
-3.  Instala dependencias:
+3.  Instalar dependencias
 
-    ``` bash
-    pip install fastapi uvicorn
-    ```
+``` bash
+pip install "fastapi[standard]"
+```
 
 ## Ejecución
 
 Ejecuta el servidor con Uvicorn desde la raíz del proyecto:
 
 ``` bash
-uvicorn main:app --reload
+fastapi dev main.py
 ```
 
 -   Base URL: `http://127.0.0.1:8000`
 -   Swagger UI: `http://127.0.0.1:8000/docs`
 -   ReDoc: `http://127.0.0.1:8000/redoc`
 
-## Estructura
-
-``` text
-.
-├── main.py
-└── README.md
-```
 
 ## Endpoints
 
--   **Root**
-    -   `GET /`: retorna `{"Hello": "World"}`
--   **Items**
-    -   `GET /items/{item_id}`: retorna el `item_id` y opcionalmente un
-        query param `q`
+## Endpoints de la API
 
-## Ejemplos rápidos (cURL)
+La API expone endpoints para la gestión de **usuarios**.  
+Todos los endpoints están bajo el prefijo:  
 
--   Obtener root:
+### 1. Obtener todos los usuarios
+**GET** `/users/`  
+Devuelve la lista de todos los usuarios.  
+- Parámetro opcional: `active` (`true` o `false`) para filtrar usuarios.  
+
+**Ejemplo de uso:**  
+```bash
+GET http://localhost:8000/users/
+GET http://localhost:8000/users/?active=true
+```
+### 2. Obtener un usuario por ID
+**GET** `/users/{user_id}`
+Devuelve un usuario específico por su id.
+
+**Ejemplo de uso:** 
+
+-   Obtener usuario con `id=1`:
 
     ``` bash
-    curl "http://127.0.0.1:8000/"
+    GET  http://127.0.0.1:8000/users/1
     ```
 
--   Obtener item con `id=5`:
+### 3. Crear un nuevo usuario
+Crea un nuevo usuario.
 
-    ``` bash
-    curl "http://127.0.0.1:8000/items/5"
-    ```
+**Ejemplo de uso:** 
+```bash
+POST http://localhost:8000/users/
+Content-Type: application/json
+```
+-   Body
+```bash
+{
+  "id": 4,
+  "name": "Laura",
+  "email": "laura@example.com",
+  "active": true
+}
+```
 
--   Obtener item con query param:
+### 4. Actualizar un usuario
 
-    ``` bash
-    curl "http://127.0.0.1:8000/items/10?q=ejemplo"
-    ```
+**PUT** `/users/{user_id}`
 
-## Notas
+Actualiza los datos de un usuario existente.
 
--   Este proyecto es solo una base mínima.
--   Se puede extender fácilmente con más rutas, modelos de datos y
-    persistencia.
+**Ejemplo de uso:** 
+```bash
+PUT http://localhost:8000/users/1
+```
+```
+Content-Type: application/json
+```
+-   Body
+```
+{
+  "id": 1,
+  "name": "Alex González",
+  "email": "alexg@example.com",
+  "active": true
+}
+```
 
-## Mejoras sugeridas
+### 5. Eliminar un usuario
 
--   Agregar modelos Pydantic para validar datos.
--   Crear endpoints para CRUD de recursos.
--   Añadir autenticación.
--   Persistencia con SQLite/PostgreSQL.
--   Tests automatizados.
+**DELETE** `/users/{user_id}`
+
+Elimina un usuario por id.
+
+**Ejemplo de uso:** 
+```bash
+DELETE http://localhost:8000/users/2
+```
+
+## Endpoints para series
+
+### 1. Obtener todas las series
+**GET** `/series/`  
+Devuelve la lista de todas las series.  
+- Parámetro opcional: `active` (`true` o `false`) para filtrar series.  
+
+**Ejemplo de uso:**  
+```bash
+GET http://localhost:8000/series/
+GET http://localhost:8000/series/?active=true
+```
+
+---
+
+### 2. Obtener una serie por ID
+**GET** `/series/{serie_id}`  
+Devuelve una serie específica por su id.  
+
+**Ejemplo de uso:**  
+```bash
+GET http://127.0.0.1:8000/series/1
+```
+
+---
+
+### 3. Crear una nueva serie
+**POST** `/series/`  
+Crea una nueva serie.  
+
+**Ejemplo de uso:**  
+```bash
+POST http://localhost:8000/series/
+Content-Type: application/json
+```
+
+**Body**  
+```json
+{
+  "id": 6,
+  "name": "Better Call Saul",
+  "seasons": 6,
+  "active": true
+}
+```
+
+---
+
+### 4. Actualizar una serie
+**PUT** `/series/{serie_id}`  
+Actualiza los datos de una serie existente.  
+
+**Ejemplo de uso:**  
+```bash
+PUT http://localhost:8000/series/1
+Content-Type: application/json
+```
+
+**Body**  
+```json
+{
+  "id": 1,
+  "name": "Breaking Bad",
+  "seasons": 5,
+  "active": true
+}
+```
+
+---
+
+### 5. Eliminar una serie
+**DELETE** `/series/{serie_id}`  
+Elimina una serie por id.  
+
+**Ejemplo de uso:**  
+```bash
+DELETE http://localhost:8000/series/2
+```
+
+
+## Autores
+ALEXSANDER GONZALEZ
+
+JEIFERSON SANTILLANA
