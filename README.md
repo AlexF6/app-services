@@ -232,6 +232,86 @@ Elimina una serie por id.
 DELETE http://localhost:8000/series/2
 ```
 
+## Endpoints para las suscripciones
+
+
+### 1. Obtener todas las suscripciones
+**GET** `/subscriptions/`  
+Devuelve la lista de todas las suscripciones.  
+- Parámetro opcional: `active` (`true` o `false`) para filtrar suscripciones.  
+ 
+**Ejemplo de uso:**  
+```bash
+GET http://localhost:8000/subscriptions/
+GET http://localhost:8000/subscriptions/?active=true
+```
+ 
+---
+ 
+### 2. Obtener una suscripción por ID
+**GET** `/subscriptions/{subscription_id}`  
+Devuelve una suscripción específica por su id.  
+ 
+**Ejemplo de uso:**  
+```bash
+GET http://127.0.0.1:8000/subscriptions/1
+```
+ 
+---
+ 
+### 3. Crear una nueva suscripción
+**POST** `/subscriptions/`  
+Crea una nueva suscripción.  
+ 
+**Ejemplo de uso:**  
+```bash
+POST http://localhost:8000/subscriptions/
+Content-Type: application/json
+```
+ 
+**Body**  
+```json
+{
+  "id": 4,
+  "user_id": 2,
+  "plan": "Gold",
+  "active": true
+}
+```
+ 
+---
+ 
+### 4. Actualizar una suscripción
+**PUT** `/subscriptions/{subscription_id}`  
+Actualiza los datos de una suscripción existente.  
+ 
+**Ejemplo de uso:**  
+```bash
+PUT http://localhost:8000/subscriptions/1
+Content-Type: application/json
+```
+ 
+**Body**  
+```json
+{
+  "id": 1,
+  "user_id": 1,
+  "plan": "Premium",
+  "active": true
+}
+```
+ 
+---
+ 
+### 5. Eliminar una suscripción
+**DELETE** `/subscriptions/{subscription_id}`  
+Elimina una suscripción por id.  
+ 
+**Ejemplo de uso:**  
+```bash
+DELETE http://localhost:8000/subscriptions/2
+```
+
 
 ## Autores
 ALEXSANDER GONZALEZ
