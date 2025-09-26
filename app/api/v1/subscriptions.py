@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from schemas.subscriptions import Subscription
+from app.schemas.subscriptions import Subscription
 
 router = APIRouter(prefix="/subscriptions", tags=["Subscriptions"])
 
