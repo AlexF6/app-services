@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from schemas.series import Serie
+from app.schemas.series import Serie
 
 router = APIRouter(prefix="/series", tags=["Series"])
 
