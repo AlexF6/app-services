@@ -9,6 +9,7 @@ subscriptions = [
     {"id": 3, "user_id": 3, "plan": "Free", "active": False},
 ]
 
+
 @router.get("/{subscription_id}", response_model=Subscription)
 def get_subscription(subscription_id: int):
     for s in subscriptions:
@@ -49,5 +50,3 @@ def update_subscription(subscription_id: int, updated: Subscription):
             subscriptions[idx] = updated.model_dump()
             return subscriptions[idx]
     raise HTTPException(status_code=404, detail="Subscription not found")
-
-
