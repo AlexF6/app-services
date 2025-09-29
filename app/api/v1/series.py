@@ -11,6 +11,7 @@ series = [
     {"id": 5, "name": "The Witcher", "seasons": 3, "active": True},
 ]
 
+
 # Show
 @router.get("/{serie_id}", response_model=Serie)
 def get_serie(serie_id: int):
@@ -18,6 +19,7 @@ def get_serie(serie_id: int):
         if serie["id"] == serie_id:
             return serie
     raise HTTPException(status_code=404, detail="Serie not found")
+
 
 # Read
 # users index
@@ -35,7 +37,7 @@ def update_serie(serie_id: int, updated_serie: Serie):
         if serie["id"] == serie_id:
             series[index].update(updated_serie.model_dump())
             return series[index]
-    
+
     raise HTTPException(status_code=404, detail="Serie not found")
 
 
@@ -51,6 +53,6 @@ def delete_serie(serie_id: int):
     for index, user in enumerate(series):
         if user["id"] == serie_id:
             series.pop(index)
-            return 
-    
+            return
+
     raise HTTPException(status_code=404)
