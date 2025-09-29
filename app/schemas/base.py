@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
+
 class AuditOut(BaseModel):
     creado_por: uuid.UUID
     actualizado_por: Optional[uuid.UUID] = None

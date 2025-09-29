@@ -7,6 +7,7 @@ from app.core.config import settings
 
 pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+
 def run():
     db: Session = SessionLocal()
     admin_id = uuid.uuid4()
@@ -17,11 +18,12 @@ def run():
         password=pwd.hash(settings.ADMIN_PASS),
         active=True,
         is_admin=True,
-        creado_por=admin_id
+        creado_por=admin_id,
     )
     db.add(admin)
     db.commit()
     print(f"Admin created with email: {admin.email} and id: {admin.id}")
+
 
 if __name__ == "__main__":
     run()

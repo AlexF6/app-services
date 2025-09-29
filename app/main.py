@@ -16,6 +16,7 @@ app.include_router(users.router)
 def read_config():
     return {"foo": settings.DATABASE_URL}
 
+
 origins = [
     "http://localhost:8000",
 ]
