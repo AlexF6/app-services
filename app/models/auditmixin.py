@@ -1,6 +1,7 @@
 from sqlalchemy import Column, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
+from enum import Enum as PyEnum
 
 
 class AuditMixin:
@@ -16,3 +17,21 @@ class AuditMixin:
     fecha_actualizacion = Column(
         DateTime(timezone=True), onupdate=func.now(), nullable=True
     )
+
+
+class ContentType(PyEnum):
+    MOVIE = "MOVIE"
+    SERIES = "SERIES"
+
+
+class SubscriptionStatus(PyEnum):
+    ACTIVE = "ACTIVE"
+    CANCELED = "CANCELED"
+    PAST_DUE = "PAST_DUE"
+
+
+class PaymentStatus(PyEnum):
+    PENDING = "PENDING"
+    PAID = "PAID"
+    FAILED = "FAILED"
+    REFUNDED = "REFUNDED"

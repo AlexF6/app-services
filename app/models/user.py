@@ -1,8 +1,9 @@
 import uuid
 from sqlalchemy import Column, String, Boolean, DateTime, text
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 from app.core.database import Base
-from app.models.base import AuditMixin
+from app.models.auditmixin import AuditMixin
 
 
 class User(AuditMixin, Base):
@@ -21,3 +22,27 @@ class User(AuditMixin, Base):
 
     is_admin = Column(Boolean, nullable=False, server_default=text("false"), index=True)
     deleted_at = Column(DateTime(timezone=True), nullable=True, index=True)
+
+    profiles = relationship(
+        "Profile",
+        back_populates="user",
+        foreign_keys="Profile.user_id",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    subscriptions = relationship(
+        "Subscription",
+        back_populates="user",
+        foreign_keys="Subscription.user_id",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    payments = relationship(
+        "Payment",
+        back_populates="user",
+        foreign_keys="Payment.user_id",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
