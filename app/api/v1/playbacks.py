@@ -15,7 +15,7 @@ from app.api.v1.auth import get_current_user
 from app.models.user import User
 from app.models.profile import Profile
 from app.models.content import Content
-from app.models.episode import Episode  # si aún no lo tienes, comenta import y las validaciones de episodio
+from app.models.episode import Episode
 from app.models.playback import Playback
 
 from app.schemas.playback import (
@@ -26,26 +26,44 @@ from app.schemas.playback import (
 )
 
 router = APIRouter(prefix="/playbacks", tags=["Playbacks"])
-me_router = APIRouter(prefix="/profiles/{profile_id}/playbacks", tags=["Playbacks (My Profile)"])
+me_router = APIRouter(
+    prefix="/profiles/{profile_id}/playbacks", tags=["Playbacks (My Profile)"]
+)
 
-
-# ----------------------------
-# Helpers
-# ----------------------------
 
 def _ensure_profile(db: Session, profile_id: UUID) -> Profile:
+    """
+    Ensures that a profile exists for the given ID.
+
+    Raises:
+        HTTPException: 404 Not Found if profile does not exist.
+    """
     prof = db.get(Profile, profile_id)
     if not prof:
         raise HTTPException(status_code=404, detail="Profile not found")
     return prof
 
+
 def _ensure_content(db: Session, content_id: UUID) -> Content:
+    """
+    Ensures that a content item exists for the given ID.
+
+    Raises:
+        HTTPException: 404 Not Found if content does not exist.
+    """
     cnt = db.get(Content, content_id)
     if not cnt:
         raise HTTPException(status_code=404, detail="Content not found")
     return cnt
 
+
 def _ensure_episode(db: Session, episode_id: Optional[UUID]) -> Optional[Episode]:
+    """
+    Ensures that an episode exists for the given ID, if provided.
+
+    Raises:
+        HTTPException: 404 Not Found if episode ID is provided but episode does not exist.
+    """
     if episode_id is None:
         return None
     ep = db.get(Episode, episode_id)
@@ -53,23 +71,50 @@ def _ensure_episode(db: Session, episode_id: Optional[UUID]) -> Optional[Episode
         raise HTTPException(status_code=404, detail="Episode not found")
     return ep
 
+
 def _ensure_episode_matches_content(ep: Episode, content_id: UUID) -> None:
-    # Suponiendo Episode tiene content_id
+    """
+    Checks if an episode belongs to the specified content.
+
+    Raises:
+        HTTPException: 409 Conflict if the episode content_id does not match the provided content_id.
+    """
     if getattr(ep, "content_id", None) != content_id:
-        raise HTTPException(status_code=409, detail="Episode does not belong to given content")
+        raise HTTPException(
+            status_code=409, detail="Episode does not belong to given content"
+        )
+
 
 def _profile_belongs_to_user(profile: Profile, user_id: UUID) -> None:
-    if profile.user_id != user_id:
-        raise HTTPException(status_code=403, detail="Profile does not belong to current user")
+    """
+    Checks if a profile belongs to the specified user.
 
-def _normalize_progress_and_completion(entity: Playback, upd_progress: Optional[int], upd_completed: Optional[bool], upd_ended_at: Optional[datetime]) -> None:
-    # progress
+    Raises:
+        HTTPException: 403 Forbidden if the profile user_id does not match the provided user_id.
+    """
+    if profile.user_id != user_id:
+        raise HTTPException(
+            status_code=403, detail="Profile does not belong to current user"
+        )
+
+
+def _normalize_progress_and_completion(
+    entity: Playback,
+    upd_progress: Optional[int],
+    upd_completed: Optional[bool],
+    upd_ended_at: Optional[datetime],
+) -> None:
+    """
+    Normalizes progress, completed status, and ended_at timestamp based on update rules.
+
+    Raises:
+        HTTPException: 400 Bad Request if progress_seconds is negative.
+    """
     if upd_progress is not None:
         if upd_progress < 0:
             raise HTTPException(status_code=400, detail="progress_seconds must be >= 0")
         entity.progress_seconds = upd_progress
 
-    # completed & ended_at rules:
     if upd_completed is not None:
         entity.completed = upd_completed
         if upd_completed and entity.ended_at is None and upd_ended_at is None:
@@ -78,13 +123,8 @@ def _normalize_progress_and_completion(entity: Playback, upd_progress: Optional[
     if upd_ended_at is not None:
         entity.ended_at = upd_ended_at
         if upd_ended_at and not entity.completed:
-            # si envían ended_at, asumimos que completó (puedes omitir si no lo deseas)
             entity.completed = True
 
-
-# ============================================================
-#                           ADMIN
-# ============================================================
 
 @router.get("", response_model=List[PlaybackListItem])
 def list_playbacks(
@@ -94,7 +134,7 @@ def list_playbacks(
     content_id: Optional[UUID] = Query(None),
     episode_id: Optional[UUID] = Query(None),
     completed: Optional[bool] = Query(None),
-    device_q: Optional[str] = Query(None, description="Filtro por dispositivo (ilike)"),
+    device_q: Optional[str] = Query(None, description="Filter by device (ilike)"),
     started_from: Optional[datetime] = Query(None),
     started_to: Optional[datetime] = Query(None),
     ended_from: Optional[datetime] = Query(None),
@@ -103,9 +143,9 @@ def list_playbacks(
     max_progress: Optional[int] = Query(None, ge=0),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-):
+) -> List[PlaybackListItem]:
     """
-    Lista playbacks con filtros y paginación (solo admin).
+    Lists playbacks with filters and pagination (admin only).
     """
     q = db.query(Playback)
 
@@ -143,7 +183,13 @@ def get_playback(
     playback_id: UUID,
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
-):
+) -> Playback:
+    """
+    Retrieves a single playback by ID (admin only).
+
+    Raises:
+        HTTPException: 404 Not Found if playback does not exist.
+    """
     pb = db.get(Playback, playback_id)
     if not pb:
         raise HTTPException(status_code=404, detail="Playback not found")
@@ -155,9 +201,14 @@ def create_playback(
     payload: PlaybackCreate,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
-):
+) -> Playback:
     """
-    Crea un playback (admin). Valida perfil, contenido y episodio (coherencia content-episode).
+    Creates a playback record (admin only). Validates profile, content, and episode consistency.
+
+    Raises:
+        HTTPException: 404 Not Found if profile, content, or episode ID is invalid.
+        HTTPException: 409 Conflict if episode does not belong to the content.
+        HTTPException: 400 Bad Request if progress_seconds is negative.
     """
     prof = _ensure_profile(db, payload.profile_id)
     cnt = _ensure_content(db, payload.content_id)
@@ -169,15 +220,16 @@ def create_playback(
         profile_id=prof.id,
         content_id=cnt.id,
         episode_id=getattr(ep, "id", None),
-        started_at=payload.started_at,      # si None, DB usa now()
+        started_at=payload.started_at,
         ended_at=payload.ended_at,
         progress_seconds=payload.progress_seconds or 0,
         completed=payload.completed or False,
         device=payload.device,
         creado_por=admin.id,
     )
-    # Reglas de coherencia de progreso/completado:
-    _normalize_progress_and_completion(entity, payload.progress_seconds, payload.completed, payload.ended_at)
+    _normalize_progress_and_completion(
+        entity, payload.progress_seconds, payload.completed, payload.ended_at
+    )
 
     db.add(entity)
     db.commit()
@@ -191,12 +243,21 @@ def update_playback(
     payload: PlaybackUpdate,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
-):
+) -> Playback:
+    """
+    Updates a playback record (admin only). Normalizes progress and completion fields.
+
+    Raises:
+        HTTPException: 404 Not Found if playback does not exist.
+        HTTPException: 400 Bad Request if progress_seconds is negative.
+    """
     pb = db.get(Playback, playback_id)
     if not pb:
         raise HTTPException(status_code=404, detail="Playback not found")
 
-    _normalize_progress_and_completion(pb, payload.progress_seconds, payload.completed, payload.ended_at)
+    _normalize_progress_and_completion(
+        pb, payload.progress_seconds, payload.completed, payload.ended_at
+    )
 
     if payload.device is not None:
         pb.device = payload.device or None
@@ -212,7 +273,10 @@ def delete_playback(
     playback_id: UUID,
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
-):
+) -> None:
+    """
+    Deletes a playback record (hard delete, admin only).
+    """
     pb = db.get(Playback, playback_id)
     if not pb:
         return None
@@ -220,10 +284,6 @@ def delete_playback(
     db.commit()
     return None
 
-
-# ============================================================
-#                  OWNER-SCOPED (PERFIL DEL USUARIO)
-# ============================================================
 
 @me_router.get("", response_model=List[PlaybackListItem])
 def my_profile_playbacks(
@@ -235,7 +295,14 @@ def my_profile_playbacks(
     completed: Optional[bool] = Query(None),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-):
+) -> List[PlaybackListItem]:
+    """
+    Lists playbacks for a specific profile belonging to the authenticated user.
+
+    Raises:
+        HTTPException: 404 Not Found if profile does not exist.
+        HTTPException: 403 Forbidden if the profile does not belong to the current user.
+    """
     prof = _ensure_profile(db, profile_id)
     _profile_belongs_to_user(prof, me.id)
 
@@ -257,16 +324,24 @@ def start_playback_for_my_profile(
     payload: PlaybackCreate,
     db: Session = Depends(get_db),
     me: User = Depends(get_current_user),
-):
+) -> Playback:
     """
-    Inicia un playback para un perfil del usuario autenticado.
+    Starts a new playback for a profile belonging to the authenticated user.
+
+    Raises:
+        HTTPException: 404 Not Found if profile or content is invalid.
+        HTTPException: 403 Forbidden if the profile does not belong to the current user.
+        HTTPException: 400 Bad Request if profile_id in payload doesn't match route parameter.
+        HTTPException: 409 Conflict if episode does not belong to the content.
+        HTTPException: 400 Bad Request if progress_seconds is negative.
     """
     prof = _ensure_profile(db, profile_id)
     _profile_belongs_to_user(prof, me.id)
 
     if payload.profile_id != profile_id:
-        # reforzamos que el body apunte al mismo perfil de la ruta
-        raise HTTPException(status_code=400, detail="profile_id mismatch with route parameter")
+        raise HTTPException(
+            status_code=400, detail="profile_id mismatch with route parameter"
+        )
 
     cnt = _ensure_content(db, payload.content_id)
     ep = _ensure_episode(db, payload.episode_id)
@@ -277,14 +352,16 @@ def start_playback_for_my_profile(
         profile_id=profile_id,
         content_id=cnt.id,
         episode_id=getattr(ep, "id", None),
-        started_at=payload.started_at,  # DB pone now() si None
+        started_at=payload.started_at,
         ended_at=payload.ended_at,
         progress_seconds=payload.progress_seconds or 0,
         completed=payload.completed or False,
         device=payload.device,
         creado_por=me.id,
     )
-    _normalize_progress_and_completion(entity, payload.progress_seconds, payload.completed, payload.ended_at)
+    _normalize_progress_and_completion(
+        entity, payload.progress_seconds, payload.completed, payload.ended_at
+    )
 
     db.add(entity)
     db.commit()
@@ -299,7 +376,15 @@ def update_my_profile_playback(
     payload: PlaybackUpdate,
     db: Session = Depends(get_db),
     me: User = Depends(get_current_user),
-):
+) -> Playback:
+    """
+    Updates an existing playback record for a profile belonging to the authenticated user.
+
+    Raises:
+        HTTPException: 404 Not Found if profile or playback does not exist, or if playback doesn't belong to the profile.
+        HTTPException: 403 Forbidden if the profile does not belong to the current user.
+        HTTPException: 400 Bad Request if progress_seconds is negative.
+    """
     prof = _ensure_profile(db, profile_id)
     _profile_belongs_to_user(prof, me.id)
 
@@ -307,7 +392,9 @@ def update_my_profile_playback(
     if not pb or pb.profile_id != profile_id:
         raise HTTPException(status_code=404, detail="Playback not found")
 
-    _normalize_progress_and_completion(pb, payload.progress_seconds, payload.completed, payload.ended_at)
+    _normalize_progress_and_completion(
+        pb, payload.progress_seconds, payload.completed, payload.ended_at
+    )
 
     if payload.device is not None:
         pb.device = payload.device or None
@@ -324,9 +411,13 @@ def finish_my_profile_playback(
     playback_id: UUID,
     db: Session = Depends(get_db),
     me: User = Depends(get_current_user),
-):
+) -> Playback:
     """
-    Marca un playback como completado (completed=True, ended_at=now si no existe).
+    Marks a playback as completed (completed=True, sets ended_at to now if missing) for a profile belonging to the authenticated user.
+
+    Raises:
+        HTTPException: 404 Not Found if profile or playback does not exist, or if playback doesn't belong to the profile.
+        HTTPException: 403 Forbidden if the profile does not belong to the current user.
     """
     prof = _ensure_profile(db, profile_id)
     _profile_belongs_to_user(prof, me.id)
@@ -352,7 +443,14 @@ def delete_my_profile_playback(
     playback_id: UUID,
     db: Session = Depends(get_db),
     me: User = Depends(get_current_user),
-):
+) -> None:
+    """
+    Deletes a playback record for a profile belonging to the authenticated user.
+
+    Raises:
+        HTTPException: 404 Not Found if profile does not exist.
+        HTTPException: 403 Forbidden if the profile does not belong to the current user.
+    """
     prof = _ensure_profile(db, profile_id)
     _profile_belongs_to_user(prof, me.id)
 

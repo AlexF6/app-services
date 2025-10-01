@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import and_, func
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -28,26 +28,45 @@ from app.schemas.watchlist import (
 router = APIRouter(prefix="/watchlist", tags=["Watchlist"])
 
 
-# ----------------------------
-# Helpers
-# ----------------------------
-def _ensure_profile_and_content(db: Session, profile_id: UUID, content_id: UUID) -> None:
+def _ensure_profile_and_content(
+    db: Session, profile_id: UUID, content_id: UUID
+) -> None:
+    """
+    Checks if the given Profile and Content IDs exist in the database.
+
+    Raises:
+        HTTPException: 404 Not Found if either Profile or Content is missing.
+    """
     if not db.get(Profile, profile_id):
         raise HTTPException(status_code=404, detail="Profile not found")
     if not db.get(Content, content_id):
         raise HTTPException(status_code=404, detail="Content not found")
 
 
-def _ensure_profile_belongs_to_user(db: Session, profile_id: UUID, user_id: UUID) -> Profile:
+def _ensure_profile_belongs_to_user(
+    db: Session, profile_id: UUID, user_id: UUID
+) -> Profile:
+    """
+    Retrieves a profile and ensures it belongs to the specified user ID.
+
+    Raises:
+        HTTPException: 404 Not Found if profile does not exist.
+        HTTPException: 403 Forbidden if profile does not belong to the user.
+    """
     prof = db.get(Profile, profile_id)
     if not prof:
         raise HTTPException(status_code=404, detail="Profile not found")
     if prof.user_id != user_id:
-        raise HTTPException(status_code=403, detail="Profile does not belong to current user")
+        raise HTTPException(
+            status_code=403, detail="Profile does not belong to current user"
+        )
     return prof
 
 
 def _exists_watchlist_item(db: Session, profile_id: UUID, content_id: UUID) -> bool:
+    """
+    Checks for the existence of a Watchlist item with the given profile and content IDs.
+    """
     return (
         db.query(Watchlist)
         .filter(Watchlist.profile_id == profile_id, Watchlist.content_id == content_id)
@@ -55,10 +74,6 @@ def _exists_watchlist_item(db: Session, profile_id: UUID, content_id: UUID) -> b
         is not None
     )
 
-
-# ============================================================
-#                           ADMIN
-# ============================================================
 
 @router.get("", response_model=List[WatchlistListItem])
 def list_watchlist_items(
@@ -70,9 +85,9 @@ def list_watchlist_items(
     added_to: Optional[datetime] = Query(None),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-):
+) -> List[WatchlistListItem]:
     """
-    Lista ítems de watchlist (admin).
+    Lists watchlist items with filters (admin only).
     """
     q = db.query(Watchlist)
 
@@ -94,7 +109,13 @@ def get_watchlist_item(
     watchlist_id: UUID,
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
-):
+) -> Watchlist:
+    """
+    Retrieves a single watchlist item by ID (admin only).
+
+    Raises:
+        HTTPException: 404 Not Found if item does not exist.
+    """
     item = db.get(Watchlist, watchlist_id)
     if not item:
         raise HTTPException(status_code=404, detail="Watchlist item not found")
@@ -106,9 +127,13 @@ def create_watchlist_item(
     payload: WatchlistCreate,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
-):
+) -> Watchlist:
     """
-    Crea un ítem de watchlist (admin). Evita duplicados profile_id+content_id.
+    Creates a watchlist item (admin only). Avoids duplicates by profile_id and content_id.
+
+    Raises:
+        HTTPException: 404 Not Found if Profile or Content is invalid.
+        HTTPException: 409 Conflict if the item already exists in the watchlist.
     """
     _ensure_profile_and_content(db, payload.profile_id, payload.content_id)
 
@@ -132,10 +157,13 @@ def update_watchlist_item(
     payload: WatchlistUpdate,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
-):
+) -> Watchlist:
     """
-    Actualiza un ítem de watchlist (admin). No recomendado cambiar profile_id;
-    si lo permites, validamos referencias y duplicados.
+    Updates a watchlist item (admin only). Validates profile/content existence and duplicate combination.
+
+    Raises:
+        HTTPException: 404 Not Found if item, Profile, or Content is invalid.
+        HTTPException: 409 Conflict if the update results in a duplicate item (same profile_id + content_id).
     """
     entity = db.get(Watchlist, watchlist_id)
     if not entity:
@@ -146,10 +174,12 @@ def update_watchlist_item(
 
     _ensure_profile_and_content(db, new_profile_id, new_content_id)
 
-    # si cambian a una combinación existente, conflicto
+    # Check for duplicate if the combination is changing
     if (new_profile_id != entity.profile_id) or (new_content_id != entity.content_id):
         if _exists_watchlist_item(db, new_profile_id, new_content_id):
-            raise HTTPException(status_code=409, detail="Item already exists in watchlist")
+            raise HTTPException(
+                status_code=409, detail="Item already exists in watchlist"
+            )
         entity.profile_id = new_profile_id
         entity.content_id = new_content_id
 
@@ -164,7 +194,10 @@ def delete_watchlist_item(
     watchlist_id: UUID,
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
-):
+) -> None:
+    """
+    Deletes a watchlist item (admin only).
+    """
     entity = db.get(Watchlist, watchlist_id)
     if not entity:
         return None
@@ -173,11 +206,9 @@ def delete_watchlist_item(
     return None
 
 
-# ============================================================
-#                    OWNER-SCOPED (PERFILES)
-# ============================================================
-
-profile_router = APIRouter(prefix="/profiles/{profile_id}/watchlist", tags=["Watchlist (My Profile)"])
+profile_router = APIRouter(
+    prefix="/profiles/{profile_id}/watchlist", tags=["Watchlist (My Profile)"]
+)
 
 
 class WatchlistQuickAdd(BaseModel):
@@ -189,12 +220,16 @@ def my_profile_watchlist(
     profile_id: UUID,
     db: Session = Depends(get_db),
     me: User = Depends(get_current_user),
-    q_title: Optional[str] = Query(None, description="Buscar por título de contenido (ilike)"),
+    q_title: Optional[str] = Query(None, description="Search by content title (ilike)"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-):
+) -> List[WatchlistListItem]:
     """
-    Lista la watchlist del perfil del usuario autenticado.
+    Lists the watchlist for the authenticated user's profile.
+
+    Raises:
+        HTTPException: 404 Not Found if profile does not exist.
+        HTTPException: 403 Forbidden if profile doesn't belong to the user.
     """
     _ensure_profile_belongs_to_user(db, profile_id, me.id)
 
@@ -202,6 +237,7 @@ def my_profile_watchlist(
 
     if q_title:
         like = f"%{q_title.lower()}%"
+        # Join is necessary to filter by Content's title
         q = q.join(Content, Content.id == Watchlist.content_id).filter(
             func.lower(Content.title).ilike(like)
         )
@@ -210,16 +246,22 @@ def my_profile_watchlist(
     return q.limit(limit).offset(offset).all()
 
 
-@profile_router.post("", response_model=WatchlistOut, status_code=status.HTTP_201_CREATED)
+@profile_router.post(
+    "", response_model=WatchlistOut, status_code=status.HTTP_201_CREATED
+)
 def add_to_my_profile_watchlist(
     profile_id: UUID,
     payload: WatchlistQuickAdd,
     db: Session = Depends(get_db),
     me: User = Depends(get_current_user),
-):
+) -> Watchlist:
     """
-    Agrega un contenido a la watchlist del perfil del usuario autenticado.
-    Idempotente: si ya existe, devuelve 409.
+    Adds content to the authenticated user's profile watchlist. Idempotent: returns 409 if already exists.
+
+    Raises:
+        HTTPException: 404 Not Found if Profile or Content is invalid.
+        HTTPException: 403 Forbidden if profile doesn't belong to the user.
+        HTTPException: 409 Conflict if the item already exists in the watchlist.
     """
     _ensure_profile_belongs_to_user(db, profile_id, me.id)
 
@@ -245,13 +287,18 @@ def remove_from_my_profile_watchlist(
     watchlist_id: UUID,
     db: Session = Depends(get_db),
     me: User = Depends(get_current_user),
-):
+) -> None:
     """
-    Elimina un ítem de la watchlist del perfil del usuario autenticado.
+    Removes a watchlist item by its ID from the authenticated user's profile watchlist.
+
+    Raises:
+        HTTPException: 404 Not Found if profile does not exist.
+        HTTPException: 403 Forbidden if profile doesn't belong to the user.
     """
     _ensure_profile_belongs_to_user(db, profile_id, me.id)
 
     entity = db.get(Watchlist, watchlist_id)
+    # Check if item exists and belongs to the profile
     if not entity or entity.profile_id != profile_id:
         return None
 
@@ -260,15 +307,21 @@ def remove_from_my_profile_watchlist(
     return None
 
 
-@profile_router.delete("/by-content/{content_id}", status_code=status.HTTP_204_NO_CONTENT)
+@profile_router.delete(
+    "/by-content/{content_id}", status_code=status.HTTP_204_NO_CONTENT
+)
 def remove_by_content_from_my_profile_watchlist(
     profile_id: UUID,
     content_id: UUID,
     db: Session = Depends(get_db),
     me: User = Depends(get_current_user),
-):
+) -> None:
     """
-    Elimina por content_id (conveniencia). No falla si no existe.
+    Removes a watchlist item by content_id from the authenticated user's profile watchlist (convenience endpoint). Does not fail if the item doesn't exist.
+
+    Raises:
+        HTTPException: 404 Not Found if profile does not exist.
+        HTTPException: 403 Forbidden if profile doesn't belong to the user.
     """
     _ensure_profile_belongs_to_user(db, profile_id, me.id)
 

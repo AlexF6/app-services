@@ -1,4 +1,3 @@
-# app/schemas/profile.py
 from typing import Optional
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
@@ -6,48 +5,48 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.schemas.base import AuditOut
 
 
-# ---------- Base ----------
 class ProfileBase(BaseModel):
-    user_id: UUID = Field(..., description="UUID del usuario dueño del perfil")
-    name: str = Field(..., min_length=1, max_length=60, description="Nombre del perfil")
+    """Base schema for profile data, containing core configuration fields."""
+
+    user_id: UUID = Field(..., description="UUID of the user who owns the profile")
+    name: str = Field(..., min_length=1, max_length=60, description="Profile name")
     avatar: Optional[str] = Field(
-        None,
-        max_length=255,
-        description="URL o ruta de avatar para el perfil"
+        None, max_length=255, description="URL or path for the profile avatar"
     )
     maturity_rating: Optional[str] = Field(
         None,
         max_length=20,
-        description="Clasificación de madurez del perfil (ej. G, PG-13, TV-MA)"
+        description="Maturity rating of the profile (e.g., G, PG-13, TV-MA)",
     )
 
 
-# ---------- Create ----------
 class ProfileCreate(ProfileBase):
     """
-    Crear un nuevo perfil para un usuario.
+    Create a new profile for a user.
     """
 
 
-# ---------- Update ----------
 class ProfileUpdate(BaseModel):
     """
-    Actualización parcial de un perfil.
+    Partial update of a profile.
     """
+
     name: Optional[str] = Field(None, max_length=60)
     avatar: Optional[str] = Field(None, max_length=255)
     maturity_rating: Optional[str] = Field(None, max_length=20)
 
 
-# ---------- Output ----------
 class ProfileOut(ProfileBase, AuditOut):
+    """Schema for output (read) operations, including audit and primary key fields."""
+
     id: UUID
 
     model_config = ConfigDict(from_attributes=True)
 
 
-# ---------- List item simplificado ----------
 class ProfileListItem(BaseModel):
+    """A simplified schema for profile data, typically used for lists or summaries."""
+
     id: UUID
     name: str
     avatar: Optional[str] = None

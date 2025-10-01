@@ -7,7 +7,6 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
-# from sqlalchemy import and_, or_
 
 from app.core.database import get_db
 from app.api.deps import require_admin
@@ -28,15 +27,16 @@ from app.schemas.payment import (
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
 
-# ----------------------------
-# Helpers
-# ----------------------------
-
-
 def _ensure_user_and_subscription(
     db: Session, user_id: UUID, subscription_id: UUID
 ) -> None:
-    """Checks for the existence and ownership consistency of the User and Subscription. Raises 404 or 409 on failure."""
+    """
+    Checks for the existence and ownership consistency of the User and Subscription.
+
+    Raises:
+        HTTPException: 404 Not Found if User or Subscription doesn't exist.
+        HTTPException: 409 Conflict if subscription_id does not belong to the provided user_id.
+    """
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -76,11 +76,6 @@ def _auto_manage_paid_at(
             entity.paid_at = incoming_paid_at
 
 
-# ----------------------------
-# List (admin)
-# ----------------------------
-
-
 @router.get("", response_model=List[PaymentListItem])
 def list_payments(
     db: Session = Depends(get_db),
@@ -98,7 +93,7 @@ def list_payments(
     amount_max: Optional[Decimal] = Query(None, ge=Decimal("0")),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-):
+) -> List[PaymentListItem]:
     """
     Lists payments with filters and pagination (admin only).
     """
@@ -134,11 +129,6 @@ def list_payments(
     return q.limit(limit).offset(offset).all()
 
 
-# ----------------------------
-# List "my payments" (current user)
-# ----------------------------
-
-
 @router.get("/me", response_model=List[PaymentListItem])
 def my_payments(
     db: Session = Depends(get_db),
@@ -146,7 +136,7 @@ def my_payments(
     status_q: Optional[PaymentStatus] = Query(None),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-):
+) -> List[PaymentListItem]:
     """
     Lists payments belonging to the authenticated user.
     """
@@ -158,19 +148,17 @@ def my_payments(
     return q.limit(limit).offset(offset).all()
 
 
-# ----------------------------
-# Get (admin)
-# ----------------------------
-
-
 @router.get("/{payment_id}", response_model=PaymentOut)
 def get_payment(
     payment_id: UUID,
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
-):
+) -> Payment:
     """
     Retrieves a payment by ID (admin only).
+
+    Raises:
+        HTTPException: 404 Not Found if payment does not exist.
     """
     payment = db.get(Payment, payment_id)
     if not payment:
@@ -178,19 +166,18 @@ def get_payment(
     return payment
 
 
-# ----------------------------
-# Create (admin)
-# ----------------------------
-
-
 @router.post("", response_model=PaymentOut, status_code=status.HTTP_201_CREATED)
 def create_payment(
     payload: PaymentCreate,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
-):
+) -> Payment:
     """
     Creates a new payment (admin only). Validates user/subscription consistency and manages status/paid_at fields.
+
+    Raises:
+        HTTPException: 404 Not Found if User or Subscription doesn't exist.
+        HTTPException: 409 Conflict if subscription_id does not belong to the provided user_id.
     """
     _ensure_user_and_subscription(db, payload.user_id, payload.subscription_id)
 
@@ -213,20 +200,19 @@ def create_payment(
     return entity
 
 
-# ----------------------------
-# Update (admin)
-# ----------------------------
-
-
 @router.put("/{payment_id}", response_model=PaymentOut)
 def update_payment(
     payment_id: UUID,
     payload: PaymentUpdate,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
-):
+) -> Payment:
     """
     Updates allowed fields of the payment (admin only). Manages currency format and status/paid_at rules.
+
+    Raises:
+        HTTPException: 404 Not Found if payment does not exist.
+        HTTPException: 400 Bad Request if amount is not positive or currency is invalid.
     """
     entity = db.get(Payment, payment_id)
     if not entity:
@@ -256,19 +242,14 @@ def update_payment(
     return entity
 
 
-# ----------------------------
-# Delete (admin) - hard delete
-# ----------------------------
-
-
 @router.delete("/{payment_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_payment(
     payment_id: UUID,
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
-):
+) -> None:
     """
-    Deletes a payment (hard delete, admin only). Consider adding a `deleted_at` field for soft-delete.
+    Deletes a payment (hard delete, admin only).
     """
     entity = db.get(Payment, payment_id)
     if not entity:

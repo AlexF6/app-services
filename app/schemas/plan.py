@@ -11,12 +11,8 @@ class PlanBase(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=80, description="Name of the plan")
     price: Decimal = Field(..., gt=0, description="Monthly or cycle price")
-    max_profiles: int = Field(
-        1, ge=1, description="Maximum number of allowed profiles"
-    )
-    max_devices: int = Field(
-        1, ge=1, description="Maximum number of allowed devices"
-    )
+    max_profiles: int = Field(1, ge=1, description="Maximum number of allowed profiles")
+    max_devices: int = Field(1, ge=1, description="Maximum number of allowed devices")
     video_quality: str = Field(
         "HD", max_length=20, description="Video quality (e.g., SD, HD, UHD, 4K)"
     )
