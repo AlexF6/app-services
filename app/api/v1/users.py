@@ -84,7 +84,7 @@ def list_users(
         query = query.filter(User.active.is_(True))
     if q:
         query = query.filter((User.name.ilike(f"%{q}%")) | (User.email.ilike(f"%{q}%")))
-    users = query.order_by(User.fecha_creacion.desc()).limit(limit).offset(offset).all()
+    users = query.order_by(User.created_at.desc()).limit(limit).offset(offset).all()
     return users
 
 
@@ -152,7 +152,7 @@ def create_user(
         password=get_password_hash(payload.password),
         active=payload.active,
         is_admin=payload.is_admin,
-        creado_por=admin.id,
+        created_by=admin.id,
     )
     db.add(user)
     db.commit()
@@ -207,7 +207,7 @@ def update_user(
     if payload.is_admin is not None:
         user.is_admin = payload.is_admin
 
-    user.actualizado_por = admin.id
+    user.updated_by = admin.id
     db.commit()
     db.refresh(user)
     return user
@@ -237,7 +237,7 @@ def soft_delete_user(
         return None
     user.deleted_at = datetime.now(timezone.utc)
     user.active = False
-    user.actualizado_por = admin.id
+    user.updated_by = admin.id
     db.commit()
     return None
 
@@ -268,7 +268,7 @@ def restore_user(
     if not user or user.deleted_at is None:
         raise HTTPException(status_code=404, detail="User not found or not deleted")
     user.deleted_at = None
-    user.actualizado_por = admin.id
+    user.updated_by = admin.id
     user.active = True
     db.commit()
     db.refresh(user)
@@ -303,7 +303,7 @@ def change_my_password(
     if not verify_password(payload.current_password, me.password):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
     me.password = get_password_hash(payload.new_password)
-    me.actualizado_por = me.id
+    me.updated_by = me.id
     db.commit()
     return None
 
@@ -336,6 +336,6 @@ def set_user_password_admin(
     if not user or user.deleted_at is not None:
         raise HTTPException(status_code=404, detail="User not found")
     user.password = get_password_hash(payload.new_password)
-    user.actualizado_por = admin.id
+    user.updated_by = admin.id
     db.commit()
     return None

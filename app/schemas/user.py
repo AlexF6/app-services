@@ -46,7 +46,7 @@ class PasswordSetAdmin(BaseModel):
     new_password: str = Field(min_length=6)
 
 
-class UserResponse(UserBase):
+class UserResponse(UserBase, AuditOut):
     id: uuid.UUID
     is_admin: bool = False
     deleted_at: Optional[datetime] = None
