@@ -72,7 +72,7 @@ def list_episodes(
     year_from: Optional[int] = Query(None, ge=1800, le=2100),
     year_to: Optional[int] = Query(None, ge=1800, le=2100),
     order_by: str = Query(
-        "fecha_creacion", pattern="^(season|episode|title|fecha_creacion|release_date)$"
+        "created_at", pattern="^(season|episode|title|created_at|release_date)$"
     ),
     order_dir: str = Query("desc", pattern="^(asc|desc)$"),
     limit: int = Query(50, ge=1, le=200),
@@ -105,7 +105,7 @@ def list_episodes(
         "season": Episode.season_number,
         "episode": Episode.episode_number,
         "title": Episode.title,
-        "fecha_creacion": Episode.fecha_creacion,
+        "created_at": Episode.created_at,
         "release_date": Episode.release_date,
     }
     q = q.order_by(
@@ -163,7 +163,7 @@ def create_episode(
         title=payload.title,
         duration_minutes=payload.duration_minutes,
         release_date=payload.release_date,
-        creado_por=admin.id,
+        created_by=admin.id,
     )
     db.add(entity)
     db.commit()
@@ -218,7 +218,7 @@ def update_episode(
     if payload.release_date is not None:
         e.release_date = payload.release_date
 
-    e.actualizado_por = admin.id
+    e.updated_by = admin.id
     db.commit()
     db.refresh(e)
     return e
@@ -249,7 +249,7 @@ def list_episodes_by_content(
     season: Optional[int] = Query(None, ge=1),
     q_title: Optional[str] = Query(None),
     order_by: str = Query(
-        "episode", pattern="^(season|episode|title|release_date|fecha_creacion)$"
+        "episode", pattern="^(season|episode|title|release_date|created_at)$"
     ),
     order_dir: str = Query("asc", pattern="^(asc|desc)$"),
     limit: int = Query(100, ge=1, le=500),
@@ -275,7 +275,7 @@ def list_episodes_by_content(
         "episode": Episode.episode_number,
         "title": Episode.title,
         "release_date": Episode.release_date,
-        "fecha_creacion": Episode.fecha_creacion,
+        "created_at": Episode.created_at,
     }[order_by]
     q = q.order_by(col.asc() if order_dir == "asc" else col.desc())
 
@@ -321,7 +321,7 @@ def create_episode_for_content(
         title=payload.title,
         duration_minutes=payload.duration_minutes,
         release_date=payload.release_date,
-        creado_por=admin.id,
+        created_by=admin.id,
     )
     db.add(entity)
     db.commit()

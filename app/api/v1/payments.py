@@ -111,9 +111,9 @@ def list_payments(
         q = q.filter(Payment.external_id == external_id)
 
     if created_from:
-        q = q.filter(Payment.fecha_creacion >= created_from)
+        q = q.filter(Payment.created_at >= created_from)
     if created_to:
-        q = q.filter(Payment.fecha_creacion <= created_to)
+        q = q.filter(Payment.created_at <= created_to)
 
     if paid_from:
         q = q.filter(Payment.paid_at.is_not(None), Payment.paid_at >= paid_from)
@@ -125,7 +125,7 @@ def list_payments(
     if amount_max is not None:
         q = q.filter(Payment.amount <= amount_max)
 
-    q = q.order_by(Payment.fecha_creacion.desc())
+    q = q.order_by(Payment.created_at.desc())
     return q.limit(limit).offset(offset).all()
 
 
@@ -144,7 +144,7 @@ def my_payments(
     if status_q:
         q = q.filter(Payment.status == status_q)
 
-    q = q.order_by(Payment.fecha_creacion.desc())
+    q = q.order_by(Payment.created_at.desc())
     return q.limit(limit).offset(offset).all()
 
 
@@ -189,7 +189,7 @@ def create_payment(
         provider=payload.provider,
         external_id=payload.external_id,
         status=payload.status or PaymentStatus.PENDING,
-        creado_por=admin.id,
+        created_by=admin.id,
     )
 
     _auto_manage_paid_at(entity, entity.status, payload.paid_at)
@@ -236,7 +236,7 @@ def update_payment(
 
     _auto_manage_paid_at(entity, payload.status, payload.paid_at)
 
-    entity.actualizado_por = admin.id
+    entity.updated_by = admin.id
     db.commit()
     db.refresh(entity)
     return entity

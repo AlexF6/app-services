@@ -100,7 +100,7 @@ def list_watchlist_items(
     if added_to:
         q = q.filter(Watchlist.added_at <= added_to)
 
-    q = q.order_by(Watchlist.added_at.desc(), Watchlist.fecha_creacion.desc())
+    q = q.order_by(Watchlist.added_at.desc(), Watchlist.created_at.desc())
     return q.limit(limit).offset(offset).all()
 
 
@@ -143,7 +143,7 @@ def create_watchlist_item(
     entity = Watchlist(
         profile_id=payload.profile_id,
         content_id=payload.content_id,
-        creado_por=admin.id,
+        created_by=admin.id,
     )
     db.add(entity)
     db.commit()
@@ -183,7 +183,7 @@ def update_watchlist_item(
         entity.profile_id = new_profile_id
         entity.content_id = new_content_id
 
-    entity.actualizado_por = admin.id
+    entity.updated_by = admin.id
     db.commit()
     db.refresh(entity)
     return entity
@@ -242,7 +242,7 @@ def my_profile_watchlist(
             func.lower(Content.title).ilike(like)
         )
 
-    q = q.order_by(Watchlist.added_at.desc(), Watchlist.fecha_creacion.desc())
+    q = q.order_by(Watchlist.added_at.desc(), Watchlist.created_at.desc())
     return q.limit(limit).offset(offset).all()
 
 
@@ -273,7 +273,7 @@ def add_to_my_profile_watchlist(
     entity = Watchlist(
         profile_id=profile_id,
         content_id=payload.content_id,
-        creado_por=me.id,
+        created_by=me.id,
     )
     db.add(entity)
     db.commit()

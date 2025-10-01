@@ -174,7 +174,7 @@ def list_playbacks(
     if max_progress is not None:
         q = q.filter(Playback.progress_seconds <= max_progress)
 
-    q = q.order_by(Playback.started_at.desc(), Playback.fecha_creacion.desc())
+    q = q.order_by(Playback.started_at.desc(), Playback.created_at.desc())
     return q.limit(limit).offset(offset).all()
 
 
@@ -225,7 +225,7 @@ def create_playback(
         progress_seconds=payload.progress_seconds or 0,
         completed=payload.completed or False,
         device=payload.device,
-        creado_por=admin.id,
+        created_by=admin.id,
     )
     _normalize_progress_and_completion(
         entity, payload.progress_seconds, payload.completed, payload.ended_at
@@ -262,7 +262,7 @@ def update_playback(
     if payload.device is not None:
         pb.device = payload.device or None
 
-    pb.actualizado_por = admin.id
+    pb.updated_by = admin.id
     db.commit()
     db.refresh(pb)
     return pb
@@ -314,7 +314,7 @@ def my_profile_playbacks(
     if completed is not None:
         q = q.filter(Playback.completed.is_(completed))
 
-    q = q.order_by(Playback.started_at.desc(), Playback.fecha_creacion.desc())
+    q = q.order_by(Playback.started_at.desc(), Playback.created_at.desc())
     return q.limit(limit).offset(offset).all()
 
 
@@ -357,7 +357,7 @@ def start_playback_for_my_profile(
         progress_seconds=payload.progress_seconds or 0,
         completed=payload.completed or False,
         device=payload.device,
-        creado_por=me.id,
+        created_by=me.id,
     )
     _normalize_progress_and_completion(
         entity, payload.progress_seconds, payload.completed, payload.ended_at
@@ -399,7 +399,7 @@ def update_my_profile_playback(
     if payload.device is not None:
         pb.device = payload.device or None
 
-    pb.actualizado_por = me.id
+    pb.updated_by = me.id
     db.commit()
     db.refresh(pb)
     return pb
@@ -431,7 +431,7 @@ def finish_my_profile_playback(
     if pb.ended_at is None:
         pb.ended_at = datetime.now(timezone.utc)
 
-    pb.actualizado_por = me.id
+    pb.updated_by = me.id
     db.commit()
     db.refresh(pb)
     return pb

@@ -5,10 +5,14 @@ from typing import Optional
 
 
 class AuditOut(BaseModel):
-    creado_por: uuid.UUID
-    actualizado_por: Optional[uuid.UUID] = None
-    fecha_creacion: Optional[datetime] = None
-    fecha_actualizacion: Optional[datetime] = None
+    """
+    Schema for outputting audit fields (creation and update metadata).
+    """
+
+    created_by: uuid.UUID
+    updated_by: Optional[uuid.UUID] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
