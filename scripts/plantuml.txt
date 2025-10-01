@@ -1,0 +1,171 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+' =========================
+' ENUMS
+' =========================
+enum ContentType {
+  MOVIE
+  SERIES
+}
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+}
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+' =========================
+' ENTIDADES
+' =========================
+class User {
+  UUID id
+  String name
+  String email
+  String password
+  Boolean active
+  Boolean is_admin
+  DateTime deleted_at
+  UUID creado_por
+  UUID actualizado_por
+  DateTime fecha_creacion
+  DateTime fecha_actualizacion
+}
+
+class Profile {
+  UUID id
+  UUID user_id
+  String name
+  String avatar
+  String maturity_rating
+  UUID creado_por
+  UUID actualizado_por
+  DateTime fecha_creacion
+  DateTime fecha_actualizacion
+}
+
+class Plan {
+  UUID id
+  String name
+  Numeric price
+  Integer max_profiles
+  Integer max_devices
+  String video_quality
+  UUID creado_por
+  UUID actualizado_por
+  DateTime fecha_creacion
+  DateTime fecha_actualizacion
+}
+
+class Subscription {
+  UUID id
+  UUID user_id
+  UUID plan_id
+  SubscriptionStatus status
+  Date start_date
+  Date end_date
+  Date renews_at
+  DateTime canceled_at
+  UUID creado_por
+  UUID actualizado_por
+  DateTime fecha_creacion
+  DateTime fecha_actualizacion
+}
+
+class Payment {
+  UUID id
+  UUID user_id
+  UUID subscription_id
+  Numeric amount
+  String currency
+  PaymentStatus status
+  DateTime paid_at
+  String provider
+  String external_id
+  UUID creado_por
+  UUID actualizado_por
+  DateTime fecha_creacion
+  DateTime fecha_actualizacion
+}
+
+class Content {
+  UUID id
+  String title
+  ContentType type
+  String description
+  Integer release_year
+  Integer duration_minutes
+  String age_rating
+  Text genres
+  UUID creado_por
+  UUID actualizado_por
+  DateTime fecha_creacion
+  DateTime fecha_actualizacion
+}
+
+class Episode {
+  UUID id
+  UUID content_id
+  Integer season_number
+  Integer episode_number
+  String title
+  Integer duration_minutes
+  Date release_date
+  UUID creado_por
+  UUID actualizado_por
+  DateTime fecha_creacion
+  DateTime fecha_actualizacion
+}
+
+class Playback {
+  UUID id
+  UUID profile_id
+  UUID content_id
+  UUID episode_id
+  DateTime started_at
+  DateTime ended_at
+  Integer progress_seconds
+  Boolean completed
+  String device
+  UUID creado_por
+  UUID actualizado_por
+  DateTime fecha_creacion
+  DateTime fecha_actualizacion
+}
+
+class Watchlist {
+  UUID id
+  UUID profile_id
+  UUID content_id
+  DateTime added_at
+  UUID creado_por
+  UUID actualizado_por
+  DateTime fecha_creacion
+  DateTime fecha_actualizacion
+}
+
+' =========================
+' RELACIONES
+' =========================
+User "1" --> "many" Profile
+User "1" --> "many" Subscription
+User "1" --> "many" Payment
+
+Plan "1" --> "many" Subscription
+
+Profile "1" --> "many" Playback
+Profile "1" --> "many" Watchlist
+
+Subscription "1" --> "many" Payment
+
+Content "1" --> "many" Episode
+Content "1" --> "many" Playback
+Content "1" --> "many" Watchlist
+
+Episode "1" --> "many" Playback
+@enduml
