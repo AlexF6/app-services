@@ -236,6 +236,7 @@ def soft_delete_user(
     if not user or user.deleted_at is not None:
         return None
     user.deleted_at = datetime.now(timezone.utc)
+    user.active = False
     user.actualizado_por = admin.id
     db.commit()
     return None
@@ -268,6 +269,7 @@ def restore_user(
         raise HTTPException(status_code=404, detail="User not found or not deleted")
     user.deleted_at = None
     user.actualizado_por = admin.id
+    user.active = True
     db.commit()
     db.refresh(user)
     return user
