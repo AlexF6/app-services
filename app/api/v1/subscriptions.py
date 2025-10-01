@@ -1,52 +1,315 @@
-from fastapi import APIRouter, HTTPException
-from app.schemas.subscriptions import Subscription
+from __future__ import annotations
+
+from datetime import date, datetime, timezone
+from typing import List, Optional
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import and_, or_
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
+from app.api.deps import require_admin
+from app.api.v1.auth import get_current_user
+
+from app.models.subscription import Subscription
+from app.models.user import User
+from app.models.plan import Plan
+from app.models.payment import (
+    Payment,
+)
+from app.models.auditmixin import SubscriptionStatus
+
+from app.schemas.subscriptions import (
+    SubscriptionCreate,
+    SubscriptionUpdate,
+    SubscriptionOut,
+    SubscriptionListItem,
+)
+from app.schemas.payment import (
+    PaymentOut,
+)
+
 
 router = APIRouter(prefix="/subscriptions", tags=["Subscriptions"])
 
-subscriptions = [
-    {"id": 1, "user_id": 1, "plan": "Basic", "active": True},
-    {"id": 2, "user_id": 2, "plan": "Premium", "active": True},
-    {"id": 3, "user_id": 3, "plan": "Free", "active": False},
-]
+
+# ----------------------------
+# Helpers
+# ----------------------------
+def _ensure_user_and_plan(db: Session, user_id: UUID, plan_id: UUID) -> None:
+    """Checks if the given User and Plan IDs exist in the database. Raises 404 if either is missing."""
+    if not db.get(User, user_id):
+        raise HTTPException(status_code=404, detail="User not found")
+    if not db.get(Plan, plan_id):
+        raise HTTPException(status_code=404, detail="Plan not found")
 
 
-@router.get("/{subscription_id}", response_model=Subscription)
-def get_subscription(subscription_id: int):
-    for s in subscriptions:
-        if s["id"] == subscription_id:
-            return s
-    raise HTTPException(status_code=404, detail="Subscription not found")
+def _set_canceled_fields(entity: Subscription, when: Optional[datetime] = None) -> None:
+    """Sets the subscription status to CANCELED and updates the canceled_at timestamp if it's currently None."""
+    if entity.status != SubscriptionStatus.CANCELED:
+        entity.status = SubscriptionStatus.CANCELED
+    if entity.canceled_at is None:
+        entity.canceled_at = when or datetime.now(timezone.utc)
 
 
-@router.get("/", response_model=list[Subscription])
-def list_all_subscriptions(active: bool | None = None):
-    if active is None:
-        return subscriptions
-    return [s for s in subscriptions if s["active"] == active]
+# ----------------------------
+# List / Query
+# ----------------------------
+@router.get("", response_model=List[SubscriptionListItem])
+def list_subscriptions(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+    user_id: Optional[UUID] = Query(None),
+    plan_id: Optional[UUID] = Query(None),
+    status_q: Optional[SubscriptionStatus] = Query(
+        None, description="Filter by status"
+    ),
+    active_only: bool = Query(
+        False, description="Equivalent to status=ACTIVE if True"
+    ),
+    start_from: Optional[date] = Query(None, description="start_date >= start_from"),
+    start_to: Optional[date] = Query(None, description="start_date <= start_to"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    """
+    Lists subscriptions with filters and pagination (admin only).
+    """
+    q = db.query(Subscription)
+
+    if user_id:
+        q = q.filter(Subscription.user_id == user_id)
+    if plan_id:
+        q = q.filter(Subscription.plan_id == plan_id)
+
+    if active_only and status_q:
+        q = q.filter(Subscription.status == SubscriptionStatus.ACTIVE)
+    elif active_only:
+        q = q.filter(Subscription.status == SubscriptionStatus.ACTIVE)
+    elif status_q:
+        q = q.filter(Subscription.status == status_q)
+
+    if start_from:
+        q = q.filter(Subscription.start_date >= start_from)
+    if start_to:
+        q = q.filter(Subscription.start_date <= start_to)
+
+    q = q.order_by(Subscription.start_date.desc(), Subscription.fecha_creacion.desc())
+
+    items = q.limit(limit).offset(offset).all()
+    return items
 
 
-@router.delete("/{subscription_id}", status_code=204)
-def delete_subscription(subscription_id: int):
-    for idx, s in enumerate(subscriptions):
-        if s["id"] == subscription_id:
-            subscriptions.pop(idx)
-            return
-    raise HTTPException(status_code=404, detail="Subscription not found")
+# ----------------------------
+# Get (admin) - by ID
+# ----------------------------
 
 
-@router.post("/", status_code=201)
-def create_subscription(subscription: Subscription):
-    if any(s["id"] == subscription.id for s in subscriptions):
-        raise HTTPException(status_code=400)
-    data = subscription.model_dump()
-    subscriptions.append(data)
-    return data
+# ----------------------------
+# Get (current user) - "my subscriptions"
+# ----------------------------
+@router.get("/me", response_model=List[SubscriptionListItem])
+def my_subscriptions(
+    db: Session = Depends(get_db),
+    me: User = Depends(get_current_user),
+    status_q: Optional[SubscriptionStatus] = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    """
+    Lists subscriptions belonging to the authenticated user.
+    """
+    q = db.query(Subscription).filter(Subscription.user_id == me.id)
+    if status_q:
+        q = q.filter(Subscription.status == status_q)
+    q = q.order_by(Subscription.start_date.desc(), Subscription.fecha_creacion.desc())
+    return q.limit(limit).offset(offset).all()
 
 
-@router.put("/{subscription_id}", response_model=Subscription)
-def update_subscription(subscription_id: int, updated: Subscription):
-    for idx, s in enumerate(subscriptions):
-        if s["id"] == subscription_id:
-            subscriptions[idx] = updated.model_dump()
-            return subscriptions[idx]
-    raise HTTPException(status_code=404, detail="Subscription not found")
+@router.get("/{subscription_id}", response_model=SubscriptionOut)
+def get_subscription(
+    subscription_id: UUID,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """
+    Retrieves a subscription by ID (admin only).
+    """
+    sub = db.get(Subscription, subscription_id)
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    return sub
+
+
+# ----------------------------
+# Create
+# ----------------------------
+@router.post("", response_model=SubscriptionOut, status_code=status.HTTP_201_CREATED)
+def create_subscription(
+    payload: SubscriptionCreate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """
+    Creates a subscription (admin only). Null `start_date` allows the DB to use CURRENT_DATE.
+    Validates user/plan existence.
+    """
+    _ensure_user_and_plan(db, payload.user_id, payload.plan_id)
+
+    already_active = (
+        db.query(Subscription)
+        .filter(
+            Subscription.user_id == payload.user_id,
+            Subscription.status == SubscriptionStatus.ACTIVE,
+        )
+        .first()
+    )
+    if already_active and payload.status == SubscriptionStatus.ACTIVE:
+        raise HTTPException(
+            status_code=409,
+            detail="User already has an active subscription",
+        )
+
+    sub = Subscription(
+        user_id=payload.user_id,
+        plan_id=payload.plan_id,
+        status=payload.status or SubscriptionStatus.ACTIVE,
+        start_date=payload.start_date,
+        end_date=payload.end_date,
+        renews_at=payload.renews_at,
+        creado_por=admin.id,
+    )
+    db.add(sub)
+    db.commit()
+    db.refresh(sub)
+    return sub
+
+
+# ----------------------------
+# Update
+# ----------------------------
+@router.put("/{subscription_id}", response_model=SubscriptionOut)
+def update_subscription(
+    subscription_id: UUID,
+    payload: SubscriptionUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """
+    Updates allowed fields of the subscription (plan/status/dates).
+    """
+    sub = db.get(Subscription, subscription_id)
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+
+    if payload.plan_id and payload.plan_id != sub.plan_id:
+        if not db.get(Plan, payload.plan_id):
+            raise HTTPException(status_code=404, detail="Plan not found")
+        sub.plan_id = payload.plan_id
+
+    if payload.status is not None:
+        if payload.status == SubscriptionStatus.CANCELED:
+            _set_canceled_fields(sub, None)
+        else:
+            if sub.canceled_at is not None:
+                sub.canceled_at = None
+        sub.status = payload.status
+
+    if payload.end_date is not None:
+        sub.end_date = payload.end_date
+    if payload.renews_at is not None:
+        sub.renews_at = payload.renews_at
+    if payload.canceled_at is not None:
+        sub.canceled_at = payload.canceled_at
+        if sub.canceled_at and sub.status != SubscriptionStatus.CANCELED:
+            sub.status = SubscriptionStatus.CANCELED
+
+    sub.actualizado_por = admin.id
+    db.commit()
+    db.refresh(sub)
+    return sub
+
+
+# ----------------------------
+# Cancel (explicit action)
+# ----------------------------
+@router.post("/{subscription_id}/cancel", response_model=SubscriptionOut)
+def cancel_subscription(
+    subscription_id: UUID,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+    effective_end: Optional[date] = Query(
+        None,
+        description="Optional: effective end date (e.g., end of billing cycle)",
+    ),
+):
+    """
+    Cancels a subscription (status=CANCELED, canceled_at=now).
+    Optionally sets `effective_end` as the `end_date`.
+    """
+    sub = db.get(Subscription, subscription_id)
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+
+    _set_canceled_fields(sub, None)
+    if effective_end is not None:
+        sub.end_date = effective_end
+
+    sub.actualizado_por = admin.id
+    db.commit()
+    db.refresh(sub)
+    return sub
+
+
+# ----------------------------
+# Reactivate (explicit action)
+# ----------------------------
+@router.post("/{subscription_id}/reactivate", response_model=SubscriptionOut)
+def reactivate_subscription(
+    subscription_id: UUID,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+    new_end_date: Optional[date] = Query(
+        None, description="Optional: new end date (e.g., renewed cycle end)"
+    ),
+):
+    """
+    Reactivates a canceled subscription (status=ACTIVE, canceled_at=None).
+    """
+    sub = db.get(Subscription, subscription_id)
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+
+    sub.status = SubscriptionStatus.ACTIVE
+    sub.canceled_at = None
+    if new_end_date is not None:
+        sub.end_date = new_end_date
+
+    sub.actualizado_por = admin.id
+    db.commit()
+    db.refresh(sub)
+    return sub
+
+
+# ----------------------------
+# (Optional) Payments per subscription
+# ----------------------------
+@router.get("/{subscription_id}/payments", response_model=List[PaymentOut])
+def list_subscription_payments(
+    subscription_id: UUID,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    """
+    Lists payments associated with a subscription (admin only).
+    """
+    sub = db.get(Subscription, subscription_id)
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+
+    q = db.query(Payment).filter(Payment.subscription_id == subscription_id)
+    q = q.order_by(Payment.fecha_creacion.desc())
+    return q.limit(limit).offset(offset).all()
