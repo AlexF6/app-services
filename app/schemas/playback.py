@@ -1,4 +1,3 @@
-# app/schemas/playback.py
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
@@ -7,60 +6,61 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.schemas.base import AuditOut
 
 
-# ---------- Base ----------
 class PlaybackBase(BaseModel):
-    profile_id: UUID = Field(..., description="Perfil que realizó la reproducción")
-    content_id: UUID = Field(..., description="Contenido reproducido")
+    """Base schema for playback data, containing all core fields."""
+
+    profile_id: UUID = Field(..., description="Profile that performed the playback")
+    content_id: UUID = Field(..., description="Content being played")
     episode_id: Optional[UUID] = Field(
-        None, description="Episodio reproducido (si aplica, en series)"
+        None, description="Episode being played (if applicable, for series)"
     )
     started_at: Optional[datetime] = Field(
-        None, description="Fecha y hora de inicio de la reproducción"
+        None, description="Date and time the playback started"
     )
     ended_at: Optional[datetime] = Field(
-        None, description="Fecha y hora de finalización de la reproducción"
+        None, description="Date and time the playback ended"
     )
     progress_seconds: Optional[int] = Field(
-        0, ge=0, description="Segundos reproducidos hasta el momento"
+        0, ge=0, description="Seconds played so far"
     )
     completed: Optional[bool] = Field(
-        False, description="True si el contenido se terminó de ver"
+        False, description="True if the content was finished watching"
     )
     device: Optional[str] = Field(
-        None, max_length=80, description="Dispositivo desde el cual se reproduce"
+        None, max_length=80, description="Device from which the content is played"
     )
 
 
-# ---------- Create ----------
 class PlaybackCreate(PlaybackBase):
     """
-    Crear un nuevo registro de reproducción.
-    - Si `started_at` no se envía, se usará la fecha actual.
+    Create a new playback record.
+    - If `started_at` is not sent, the current date will be used.
     """
 
 
-# ---------- Update ----------
 class PlaybackUpdate(BaseModel):
     """
-    Actualizar parcialmente un registro de reproducción.
+    Partially update a playback record.
     """
+
     ended_at: Optional[datetime] = None
     progress_seconds: Optional[int] = Field(None, ge=0)
     completed: Optional[bool] = None
     device: Optional[str] = Field(None, max_length=80)
 
 
-# ---------- Output ----------
 class PlaybackOut(PlaybackBase, AuditOut):
+    """Schema for output (read) operations, including audit and primary key fields."""
+
     id: UUID
-    started_at: datetime  # aseguramos que viene seteado
-    # ended_at y otros ya vienen del base
+    started_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 
 
-# ---------- List item simplificado ----------
 class PlaybackListItem(BaseModel):
+    """A simplified schema for playback data, typically used for lists or summaries."""
+
     id: UUID
     profile_id: UUID
     content_id: UUID

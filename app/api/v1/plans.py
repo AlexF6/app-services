@@ -11,8 +11,6 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.api.deps import require_admin
-# from app.api.v1.auth import get_current_user
-
 from app.models.plan import Plan
 from app.models.subscription import Subscription
 from app.models.user import User
@@ -24,9 +22,6 @@ from app.schemas.subscriptions import (
 router = APIRouter(prefix="/plans", tags=["Plans"])
 
 
-# ----------------------------
-# List
-# ----------------------------
 @router.get("", response_model=List[PlanListItem])
 def list_plans(
     db: Session = Depends(get_db),
@@ -39,7 +34,7 @@ def list_plans(
     order_dir: str = Query("desc", pattern="^(asc|desc)$"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-):
+) -> List[PlanListItem]:
     """
     Lists all plans with filtering, sorting, and pagination (admin only).
     """
@@ -64,17 +59,17 @@ def list_plans(
     return qset.limit(limit).offset(offset).all()
 
 
-# ----------------------------
-# Get
-# ----------------------------
 @router.get("/{plan_id}", response_model=PlanOut)
 def get_plan(
     plan_id: UUID,
     db: Session = Depends(get_db),
     _: "User" = Depends(require_admin),
-):
+) -> Plan:
     """
     Retrieves a single plan by ID (admin only).
+
+    Raises:
+        HTTPException: 404 Not Found if plan does not exist.
     """
     entity = db.get(Plan, plan_id)
     if not entity:
@@ -82,17 +77,17 @@ def get_plan(
     return entity
 
 
-# ----------------------------
-# Create
-# ----------------------------
 @router.post("", response_model=PlanOut, status_code=status.HTTP_201_CREATED)
 def create_plan(
     payload: PlanCreate,
     db: Session = Depends(get_db),
     admin: "User" = Depends(require_admin),
-):
+) -> Plan:
     """
     Creates a new plan (admin only). Validates uniqueness by name.
+
+    Raises:
+        HTTPException: 409 Conflict if plan name already exists.
     """
     exists = (
         db.query(Plan).filter(func.lower(Plan.name) == payload.name.lower()).first()
@@ -114,18 +109,20 @@ def create_plan(
     return entity
 
 
-# ----------------------------
-# Update
-# ----------------------------
 @router.put("/{plan_id}", response_model=PlanOut)
 def update_plan(
     plan_id: UUID,
     payload: PlanUpdate,
     db: Session = Depends(get_db),
     admin: "User" = Depends(require_admin),
-):
+) -> Plan:
     """
     Updates a plan (admin only). Validates name uniqueness and field constraints.
+
+    Raises:
+        HTTPException: 404 Not Found if plan does not exist.
+        HTTPException: 409 Conflict if the updated name already exists for another plan.
+        HTTPException: 400 Bad Request if price, max_profiles, or max_devices are invalid.
     """
     entity = db.get(Plan, plan_id)
     if not entity:
@@ -162,17 +159,17 @@ def update_plan(
     return entity
 
 
-# ----------------------------
-# Delete (hard)
-# ----------------------------
 @router.delete("/{plan_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_plan(
     plan_id: UUID,
     db: Session = Depends(get_db),
     _: "User" = Depends(require_admin),
-):
+) -> None:
     """
-    Deletes a plan (admin only). Fails with 409 Conflict if existing subscriptions reference it.
+    Deletes a plan (admin only, hard delete). Fails with 409 Conflict if existing subscriptions reference it.
+
+    Raises:
+        HTTPException: 409 Conflict if the plan is referenced by existing subscriptions.
     """
     entity = db.get(Plan, plan_id)
     if not entity:
@@ -190,9 +187,6 @@ def delete_plan(
     return None
 
 
-# ----------------------------
-# (Optional) Subscriptions for a plan
-# ----------------------------
 @router.get("/{plan_id}/subscriptions", response_model=List[SubscriptionListItem])
 def list_plan_subscriptions(
     plan_id: UUID,
@@ -200,9 +194,12 @@ def list_plan_subscriptions(
     _: "User" = Depends(require_admin),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-):
+) -> List[SubscriptionListItem]:
     """
     Lists subscriptions associated with a specific plan (admin only).
+
+    Raises:
+        HTTPException: 404 Not Found if plan does not exist.
     """
     plan = db.get(Plan, plan_id)
     if not plan:

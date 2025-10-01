@@ -13,7 +13,9 @@ class PaymentBase(BaseModel):
     """Base schema for payment data, containing all core payment transaction fields."""
 
     user_id: UUID = Field(..., description="UUID of the user who made the payment")
-    subscription_id: UUID = Field(..., description="UUID of the associated subscription")
+    subscription_id: UUID = Field(
+        ..., description="UUID of the associated subscription"
+    )
     amount: Decimal = Field(..., gt=0, description="Payment amount")
     currency: str = Field(
         "USD", min_length=3, max_length=3, description="ISO-4217 currency code"
