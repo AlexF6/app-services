@@ -40,7 +40,7 @@ def register(user_create: UserCreate, db: Session = Depends(get_db)):
 
     Checks if the email is already registered. Hashes the password and
     creates a new user record in the database, assigning the same ID
-    to the 'creado_por' field.
+    to the 'created_by' field.
 
     Args:
         user_create: Data for the new user (name, email, password).
@@ -62,7 +62,7 @@ def register(user_create: UserCreate, db: Session = Depends(get_db)):
         email=user_create.email,
         password=get_password_hash(user_create.password),
         active=True,
-        creado_por=new_id,
+        created_by=new_id,
     )
 
     db.add(user)

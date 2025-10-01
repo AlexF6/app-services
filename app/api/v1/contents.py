@@ -37,9 +37,7 @@ def list_contents(
     min_duration: Optional[int] = Query(None, ge=1),
     max_duration: Optional[int] = Query(None, ge=1),
     age_rating: Optional[str] = Query(None, max_length=10),
-    order_by: str = Query(
-        "fecha_creacion", pattern="^(title|release_year|fecha_creacion)$"
-    ),
+    order_by: str = Query("created_at", pattern="^(title|release_year|created_at)$"),
     order_dir: str = Query("desc", pattern="^(asc|desc)$"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
@@ -73,7 +71,7 @@ def list_contents(
     col = {
         "title": Content.title,
         "release_year": Content.release_year,
-        "fecha_creacion": Content.fecha_creacion,
+        "created_at": Content.created_at,
     }[order_by]
     qset = qset.order_by(col.asc() if order_dir == "asc" else col.desc())
 
@@ -133,7 +131,7 @@ def create_content(
         duration_minutes=payload.duration_minutes,
         age_rating=payload.age_rating,
         genres=payload.genres,
-        creado_por=admin.id,
+        created_by=admin.id,
     )
     db.add(entity)
     db.commit()
@@ -197,7 +195,7 @@ def update_content(
     if payload.genres is not None:
         entity.genres = payload.genres
 
-    entity.actualizado_por = admin.id
+    entity.updated_by = admin.id
     db.commit()
     db.refresh(entity)
     return entity

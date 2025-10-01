@@ -18,7 +18,7 @@ def run():
         password=pwd.hash(settings.ADMIN_PASS),
         active=True,
         is_admin=True,
-        creado_por=admin_id,
+        created_by=admin_id,
     )
     db.add(admin)
     db.commit()

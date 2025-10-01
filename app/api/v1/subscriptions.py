@@ -94,7 +94,7 @@ def list_subscriptions(
     if start_to:
         q = q.filter(Subscription.start_date <= start_to)
 
-    q = q.order_by(Subscription.start_date.desc(), Subscription.fecha_creacion.desc())
+    q = q.order_by(Subscription.start_date.desc(), Subscription.created_at.desc())
 
     items = q.limit(limit).offset(offset).all()
     return items
@@ -114,7 +114,7 @@ def my_subscriptions(
     q = db.query(Subscription).filter(Subscription.user_id == me.id)
     if status_q:
         q = q.filter(Subscription.status == status_q)
-    q = q.order_by(Subscription.start_date.desc(), Subscription.fecha_creacion.desc())
+    q = q.order_by(Subscription.start_date.desc(), Subscription.created_at.desc())
     return q.limit(limit).offset(offset).all()
 
 
@@ -172,7 +172,7 @@ def create_subscription(
         start_date=payload.start_date,
         end_date=payload.end_date,
         renews_at=payload.renews_at,
-        creado_por=admin.id,
+        created_by=admin.id,
     )
     db.add(sub)
     db.commit()
@@ -219,7 +219,7 @@ def update_subscription(
         if sub.canceled_at and sub.status != SubscriptionStatus.CANCELED:
             sub.status = SubscriptionStatus.CANCELED
 
-    sub.actualizado_por = admin.id
+    sub.updated_by = admin.id
     db.commit()
     db.refresh(sub)
     return sub
@@ -249,7 +249,7 @@ def cancel_subscription(
     if effective_end is not None:
         sub.end_date = effective_end
 
-    sub.actualizado_por = admin.id
+    sub.updated_by = admin.id
     db.commit()
     db.refresh(sub)
     return sub
@@ -279,7 +279,7 @@ def reactivate_subscription(
     if new_end_date is not None:
         sub.end_date = new_end_date
 
-    sub.actualizado_por = admin.id
+    sub.updated_by = admin.id
     db.commit()
     db.refresh(sub)
     return sub
@@ -304,5 +304,5 @@ def list_subscription_payments(
         raise HTTPException(status_code=404, detail="Subscription not found")
 
     q = db.query(Payment).filter(Payment.subscription_id == subscription_id)
-    q = q.order_by(Payment.fecha_creacion.desc())
+    q = q.order_by(Payment.created_at.desc())
     return q.limit(limit).offset(offset).all()

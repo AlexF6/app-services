@@ -31,10 +31,10 @@ class User {
   Boolean active
   Boolean is_admin
   DateTime deleted_at
-  UUID creado_por
-  UUID actualizado_por
-  DateTime fecha_creacion
-  DateTime fecha_actualizacion
+  UUID created_by
+  UUID updated_by
+  DateTime created_at
+  DateTime updated_at
 }
 
 class Profile {
@@ -43,10 +43,10 @@ class Profile {
   String name
   String avatar
   String maturity_rating
-  UUID creado_por
-  UUID actualizado_por
-  DateTime fecha_creacion
-  DateTime fecha_actualizacion
+  UUID created_by
+  UUID updated_by
+  DateTime created_at
+  DateTime updated_at
 }
 
 class Plan {
@@ -56,10 +56,10 @@ class Plan {
   Integer max_profiles
   Integer max_devices
   String video_quality
-  UUID creado_por
-  UUID actualizado_por
-  DateTime fecha_creacion
-  DateTime fecha_actualizacion
+  UUID created_by
+  UUID updated_by
+  DateTime created_at
+  DateTime updated_at
 }
 
 class Subscription {
@@ -71,10 +71,10 @@ class Subscription {
   Date end_date
   Date renews_at
   DateTime canceled_at
-  UUID creado_por
-  UUID actualizado_por
-  DateTime fecha_creacion
-  DateTime fecha_actualizacion
+  UUID created_by
+  UUID updated_by
+  DateTime created_at
+  DateTime updated_at
 }
 
 class Payment {
@@ -87,10 +87,10 @@ class Payment {
   DateTime paid_at
   String provider
   String external_id
-  UUID creado_por
-  UUID actualizado_por
-  DateTime fecha_creacion
-  DateTime fecha_actualizacion
+  UUID created_by
+  UUID updated_by
+  DateTime created_at
+  DateTime updated_at
 }
 
 class Content {
@@ -102,10 +102,10 @@ class Content {
   Integer duration_minutes
   String age_rating
   Text genres
-  UUID creado_por
-  UUID actualizado_por
-  DateTime fecha_creacion
-  DateTime fecha_actualizacion
+  UUID created_by
+  UUID updated_by
+  DateTime created_at
+  DateTime updated_at
 }
 
 class Episode {
@@ -116,10 +116,10 @@ class Episode {
   String title
   Integer duration_minutes
   Date release_date
-  UUID creado_por
-  UUID actualizado_por
-  DateTime fecha_creacion
-  DateTime fecha_actualizacion
+  UUID created_by
+  UUID updated_by
+  DateTime created_at
+  DateTime updated_at
 }
 
 class Playback {
@@ -132,10 +132,10 @@ class Playback {
   Integer progress_seconds
   Boolean completed
   String device
-  UUID creado_por
-  UUID actualizado_por
-  DateTime fecha_creacion
-  DateTime fecha_actualizacion
+  UUID created_by
+  UUID updated_by
+  DateTime created_at
+  DateTime updated_at
 }
 
 class Watchlist {
@@ -143,10 +143,10 @@ class Watchlist {
   UUID profile_id
   UUID content_id
   DateTime added_at
-  UUID creado_por
-  UUID actualizado_por
-  DateTime fecha_creacion
-  DateTime fecha_actualizacion
+  UUID created_by
+  UUID updated_by
+  DateTime created_at
+  DateTime updated_at
 }
 
 ' =========================

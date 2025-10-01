@@ -89,7 +89,7 @@ def list_profiles(
         like = f"%{q.lower()}%"
         query = query.filter(func.lower(Profile.name).ilike(like))
 
-    query = query.order_by(Profile.fecha_creacion.desc())
+    query = query.order_by(Profile.created_at.desc())
     return query.limit(limit).offset(offset).all()
 
 
@@ -136,7 +136,7 @@ def create_profile(
         name=payload.name,
         avatar=payload.avatar,
         maturity_rating=payload.maturity_rating,
-        creado_por=admin.id,
+        created_by=admin.id,
     )
     db.add(entity)
     db.commit()
@@ -174,7 +174,7 @@ def update_profile(
     if payload.maturity_rating is not None:
         prof.maturity_rating = payload.maturity_rating or None
 
-    prof.actualizado_por = admin.id
+    prof.updated_by = admin.id
     db.commit()
     db.refresh(prof)
     return prof
@@ -213,7 +213,7 @@ def my_profiles(
         like = f"%{q.lower()}%"
         query = query.filter(func.lower(Profile.name).ilike(like))
 
-    query = query.order_by(Profile.fecha_creacion.desc())
+    query = query.order_by(Profile.created_at.desc())
     return query.limit(limit).offset(offset).all()
 
 
@@ -243,7 +243,7 @@ def create_my_profile(
         name=payload.name,
         avatar=payload.avatar,
         maturity_rating=payload.maturity_rating,
-        creado_por=me.id,
+        created_by=me.id,
     )
     db.add(entity)
     db.commit()
@@ -280,7 +280,7 @@ def update_my_profile(
     if payload.maturity_rating is not None:
         prof.maturity_rating = payload.maturity_rating or None
 
-    prof.actualizado_por = me.id
+    prof.updated_by = me.id
     db.commit()
     db.refresh(prof)
     return prof

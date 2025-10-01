@@ -30,7 +30,7 @@ def list_plans(
     min_price: Optional[Decimal] = Query(None, ge=Decimal("0")),
     max_price: Optional[Decimal] = Query(None, ge=Decimal("0")),
     video_quality: Optional[str] = Query(None, description="Exact filter by quality"),
-    order_by: str = Query("fecha_creacion", pattern="^(name|price|fecha_creacion)$"),
+    order_by: str = Query("created_at", pattern="^(name|price|created_at)$"),
     order_dir: str = Query("desc", pattern="^(asc|desc)$"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
@@ -52,7 +52,7 @@ def list_plans(
     col = {
         "name": Plan.name,
         "price": Plan.price,
-        "fecha_creacion": Plan.fecha_creacion,
+        "created_at": Plan.created_at,
     }[order_by]
     qset = qset.order_by(col.asc() if order_dir == "asc" else col.desc())
 
@@ -101,7 +101,7 @@ def create_plan(
         max_profiles=payload.max_profiles,
         max_devices=payload.max_devices,
         video_quality=payload.video_quality,
-        creado_por=admin.id,
+        created_by=admin.id,
     )
     db.add(entity)
     db.commit()
@@ -153,7 +153,7 @@ def update_plan(
     if payload.video_quality is not None:
         entity.video_quality = payload.video_quality
 
-    entity.actualizado_por = admin.id
+    entity.updated_by = admin.id
     db.commit()
     db.refresh(entity)
     return entity
@@ -206,5 +206,5 @@ def list_plan_subscriptions(
         raise HTTPException(status_code=404, detail="Plan not found")
 
     q = db.query(Subscription).filter(Subscription.plan_id == plan_id)
-    q = q.order_by(Subscription.fecha_creacion.desc())
+    q = q.order_by(Subscription.created_at.desc())
     return q.limit(limit).offset(offset).all()
