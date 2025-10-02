@@ -1,10 +1,27 @@
 services:
-  api:
+  api-base:
     build: .
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    env_file: .env
+    image: ${COMPOSE_PROJECT_NAME:-app}-base
+    restart: unless-stopped
+
+  api-dev:
+    extends:
+      service: api-base
+    profiles:
+      - dev
+    command: python -m app.cli dev
     ports:
       - "8000:8000"
-    env_file: .env
     volumes:
       - ./app:/app/app:rw
       - ./requirements.txt:/app/requirements.txt:ro
+
+  api-serve:
+    extends:
+      service: api-base
+    profiles:
+      - serve
+    command: python -m app.cli serve --workers 2
+    ports:
+      - "8000:8000"
