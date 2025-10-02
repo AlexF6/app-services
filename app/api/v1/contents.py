@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -206,7 +206,7 @@ def delete_content(
     content_id: UUID,
     db: Session = Depends(get_db),
     _: "User" = Depends(require_admin),
-) -> None:
+) -> Response:
     """
     Deletes a content item (hard delete). May raise IntegrityError if existing foreign keys prevent deletion.
 
@@ -215,7 +215,7 @@ def delete_content(
     """
     entity = db.get(Content, content_id)
     if not entity:
-        return None
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
 
     try:
         db.delete(entity)
@@ -226,4 +226,4 @@ def delete_content(
             status_code=409,
             detail="Cannot delete content due to existing references (episodes/playbacks/watchlists)",
         )
-    return None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

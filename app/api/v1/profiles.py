@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -185,16 +185,16 @@ def delete_profile(
     profile_id: UUID,
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
-) -> None:
+) -> Response:
     """
     Deletes a profile (admin only).
     """
     prof = db.get(Profile, profile_id)
     if not prof:
-        return None
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
     db.delete(prof)
     db.commit()
-    return None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @me_router.get("", response_model=List[ProfileListItem])
@@ -291,7 +291,7 @@ def delete_my_profile(
     profile_id: UUID,
     db: Session = Depends(get_db),
     me: User = Depends(get_current_user),
-) -> None:
+) -> Response:
     """
     Deletes a profile belonging to the authenticated user.
 
@@ -302,4 +302,4 @@ def delete_my_profile(
     prof = _profile_belongs_to(db, profile_id, me.id)
     db.delete(prof)
     db.commit()
-    return None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

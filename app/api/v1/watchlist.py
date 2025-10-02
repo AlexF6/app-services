@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -194,16 +194,16 @@ def delete_watchlist_item(
     watchlist_id: UUID,
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
-) -> None:
+) -> Response:
     """
     Deletes a watchlist item (admin only).
     """
     entity = db.get(Watchlist, watchlist_id)
     if not entity:
-        return None
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
     db.delete(entity)
     db.commit()
-    return None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 profile_router = APIRouter(
@@ -287,7 +287,7 @@ def remove_from_my_profile_watchlist(
     watchlist_id: UUID,
     db: Session = Depends(get_db),
     me: User = Depends(get_current_user),
-) -> None:
+) -> Response:
     """
     Removes a watchlist item by its ID from the authenticated user's profile watchlist.
 
@@ -300,11 +300,11 @@ def remove_from_my_profile_watchlist(
     entity = db.get(Watchlist, watchlist_id)
     # Check if item exists and belongs to the profile
     if not entity or entity.profile_id != profile_id:
-        return None
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
 
     db.delete(entity)
     db.commit()
-    return None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @profile_router.delete(
@@ -315,7 +315,7 @@ def remove_by_content_from_my_profile_watchlist(
     content_id: UUID,
     db: Session = Depends(get_db),
     me: User = Depends(get_current_user),
-) -> None:
+) -> Response:
     """
     Removes a watchlist item by content_id from the authenticated user's profile watchlist (convenience endpoint). Does not fail if the item doesn't exist.
 
@@ -331,8 +331,8 @@ def remove_by_content_from_my_profile_watchlist(
         .first()
     )
     if not entity:
-        return None
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
 
     db.delete(entity)
     db.commit()
-    return None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

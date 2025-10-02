@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -164,7 +164,7 @@ def delete_plan(
     plan_id: UUID,
     db: Session = Depends(get_db),
     _: "User" = Depends(require_admin),
-) -> None:
+) -> Response:
     """
     Deletes a plan (admin only, hard delete). Fails with 409 Conflict if existing subscriptions reference it.
 
@@ -173,7 +173,7 @@ def delete_plan(
     """
     entity = db.get(Plan, plan_id)
     if not entity:
-        return None
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
 
     try:
         db.delete(entity)
@@ -184,7 +184,7 @@ def delete_plan(
             status_code=409,
             detail="Cannot delete plan with existing subscriptions",
         )
-    return None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{plan_id}/subscriptions", response_model=List[SubscriptionListItem])
