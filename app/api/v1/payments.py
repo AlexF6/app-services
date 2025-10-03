@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from fastapi import Response
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import List, Optional
@@ -247,13 +248,13 @@ def delete_payment(
     payment_id: UUID,
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
-) -> None:
+) -> Response:
     """
     Deletes a payment (hard delete, admin only).
     """
     entity = db.get(Payment, payment_id)
     if not entity:
-        return None
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
     db.delete(entity)
     db.commit()
-    return None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
