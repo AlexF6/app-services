@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -273,16 +273,16 @@ def delete_playback(
     playback_id: UUID,
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
-) -> None:
+) -> Response:
     """
     Deletes a playback record (hard delete, admin only).
     """
     pb = db.get(Playback, playback_id)
     if not pb:
-        return None
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
     db.delete(pb)
     db.commit()
-    return None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @me_router.get("", response_model=List[PlaybackListItem])
@@ -443,7 +443,7 @@ def delete_my_profile_playback(
     playback_id: UUID,
     db: Session = Depends(get_db),
     me: User = Depends(get_current_user),
-) -> None:
+) -> Response:
     """
     Deletes a playback record for a profile belonging to the authenticated user.
 
@@ -456,8 +456,9 @@ def delete_my_profile_playback(
 
     pb = db.get(Playback, playback_id)
     if not pb or pb.profile_id != profile_id:
-        return None
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
 
     db.delete(pb)
     db.commit()
-    return None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+

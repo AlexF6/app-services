@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -229,16 +229,16 @@ def delete_episode(
     episode_id: UUID,
     db: Session = Depends(get_db),
     _: "User" = Depends(require_admin),
-) -> None:
+) -> Response:
     """
     Deletes an episode (admin only).
     """
     e = db.get(Episode, episode_id)
     if not e:
-        return None
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
     db.delete(e)
     db.commit()
-    return None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @content_router.get("", response_model=List[EpisodeListItem])

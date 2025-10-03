@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     ADMIN_EMAIL: str
     ADMIN_PASS: str
-
-
+    APP_MODULE: str
+    HOST: str
+    PORT: int
 settings = Settings()

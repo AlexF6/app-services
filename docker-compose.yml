@@ -1,0 +1,29 @@
+services:
+  api-base:
+    build: .
+    env_file: .env
+    image: ${COMPOSE_PROJECT_NAME:-app}-base
+    restart: unless-stopped
+    profiles:
+      - base
+
+  api-dev:
+    extends:
+      service: api-base
+    profiles:
+      - dev
+    command: python -m app.cli dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app/app:rw
+      - ./requirements.txt:/app/requirements.txt:ro
+
+  api-serve:
+    extends:
+      service: api-base
+    profiles:
+      - serve
+    command: python -m app.cli serve
+    ports:
+      - "8000:8000"
