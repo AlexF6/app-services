@@ -28,7 +28,7 @@ def dev(
 def serve(
     host: str | None = None,
     port: int | None = None,
-    workers: int = typer.Option(1, help="Workers for production"),
+    workers: int = typer.Option(2, help="Workers for production"),
 ):
     """
     Starts in production mode (no reload).

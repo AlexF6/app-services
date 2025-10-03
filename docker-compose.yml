@@ -4,6 +4,8 @@ services:
     env_file: .env
     image: ${COMPOSE_PROJECT_NAME:-app}-base
     restart: unless-stopped
+    profiles:
+      - base
 
   api-dev:
     extends:
@@ -22,6 +24,6 @@ services:
       service: api-base
     profiles:
       - serve
-    command: python -m app.cli serve --workers 2
+    command: python -m app.cli serve
     ports:
       - "8000:8000"
