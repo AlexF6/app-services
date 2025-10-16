@@ -27,7 +27,7 @@ app.include_router(episodes.router)
 app.include_router(playbacks.router)
 
 origins = [
-    "http://localhost:8000",
+    "http://localhost:4200",
 ]
 
 app.add_middleware(

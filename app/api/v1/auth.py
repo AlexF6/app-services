@@ -1,6 +1,7 @@
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from app.core.utils import OAuth2PasswordBearerWithCookie
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from uuid import UUID, uuid4
 from app.core.database import get_db
@@ -13,7 +14,7 @@ from passlib.context import CryptContext
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+oauth2_scheme = OAuth2PasswordBearerWithCookie(tokenUrl="/token")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -73,7 +74,9 @@ def register(user_create: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/token", response_model=Token)
 def login_for_access_token(
-    form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
+    response: Response,
+    form_data: OAuth2PasswordRequestForm = Depends(), 
+    db: Session = Depends(get_db)
 ):
     """
     Authenticates a user and issues a JWT access token.
@@ -82,6 +85,7 @@ def login_for_access_token(
     If authentication is successful, it generates an access token with a defined expiration.
 
     Args:
+        response: FastAPI Response object to set cookies
         form_data: Request data (username as email and password).
         db: Dependency providing the database session.
 
@@ -109,24 +113,44 @@ def login_for_access_token(
         data={"sub": str(user.id)},
         expires_delta=access_token_expires,
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    
+    response.set_cookie(
+        key="access_token",
+        value=f"Bearer {access_token}",
+        httponly=True,
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        expires=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        secure=True,
+        samesite="lax"
+    )
+    
+    return {"access_token": "", "token_type": "bearer"}
 
+@router.post("/logout")
+def logout(response: Response):
+    response.delete_cookie(key="access_token")
+    return {"message": "Successfully logged out"}
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+    request: Request,
+    db: Session = Depends(get_db),
+    token: str = Depends(oauth2_scheme)
 ) -> User:
     """
     Dependency function to get the authenticated user from the JWT token.
+    Supports both Authorization header and HTTP-only cookies.
 
     Decodes the token, validates the payload, fetches the user ID from the database,
-    and returns the corresponding User object.
+    and returns the corresponding User object. Also checks if user is active and not deleted.
 
     Args:
-        token: The JWT token extracted from the 'Authorization' header.
+        request: FastAPI Request object to access cookies directly
+        token: The JWT token extracted from 'Authorization' header or cookie via oauth2_scheme
         db: Dependency providing the database session.
 
     Raises:
         HTTPException: 401 Unauthorized if the token is invalid, expired, or the user doesn't exist.
+        HTTPException: 403 Forbidden if the user is inactive or deleted.
 
     Returns:
         The User object associated with the token.
@@ -136,6 +160,13 @@ def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    if token is None:
+        auth_cookie = request.cookies.get("access_token")
+        if auth_cookie and auth_cookie.startswith("Bearer "):
+            token = auth_cookie[7:]
+        else:
+            raise credentials_exception
 
     payload = decode_access_token(token)
     if payload is None:
@@ -153,6 +184,19 @@ def get_current_user(
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise credentials_exception
+
+    if not user.active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is inactive"
+        )
+    
+    if user.deleted_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is deleted"
+        )
+
     return user
 
 
