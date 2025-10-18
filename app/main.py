@@ -28,8 +28,6 @@ app.include_router(playbacks.router)
 
 origins = [
     "http://localhost:4200",
-    "http://localhost:8000",
-
 ]
 
 app.add_middleware(
