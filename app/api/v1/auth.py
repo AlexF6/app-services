@@ -1,5 +1,6 @@
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.responses import JSONResponse
 from app.core.utils import OAuth2PasswordBearerWithCookie
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -7,14 +8,14 @@ from uuid import UUID, uuid4
 from app.core.database import get_db
 from app.core.security import create_access_token, decode_access_token, verify_password
 from app.models.user import User
-from app.schemas.token import Token
+from app.schemas.token import MessageResponse
 from app.schemas.user import UserResponse, UserCreate
 from app.core.config import settings
 from passlib.context import CryptContext
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
-oauth2_scheme = OAuth2PasswordBearerWithCookie(tokenUrl="/token")
+oauth2_scheme = OAuth2PasswordBearerWithCookie(tokenUrl="/auth/token")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -72,7 +73,7 @@ def register(user_create: UserCreate, db: Session = Depends(get_db)):
     return user
 
 
-@router.post("/token", response_model=Token)
+@router.post("/token", response_model=MessageResponse)
 def login_for_access_token(
     response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(), 
@@ -94,7 +95,7 @@ def login_for_access_token(
         HTTPException: 403 Forbidden if the user is inactive or deleted.
 
     Returns:
-        A dictionary containing the access token and the token type ("bearer").
+        A success message. The access token is set as an HTTP-only cookie.
     """
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user or not verify_password(form_data.password, user.password):
@@ -118,18 +119,28 @@ def login_for_access_token(
         key="access_token",
         value=f"Bearer {access_token}",
         httponly=True,
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        expires=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         secure=True,
-        samesite="lax"
+        samesite="lax",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
-    
-    return {"access_token": "", "token_type": "bearer"}
 
-@router.post("/logout")
+    return {"message": "Login successful"}
+
+
+@router.post("/logout", response_model=MessageResponse)
 def logout(response: Response):
+    """
+    Logs out the user by deleting the access token cookie.
+    
+    Args:
+        response: FastAPI Response object to delete the cookie
+        
+    Returns:
+        A message indicating successful logout
+    """
     response.delete_cookie(key="access_token")
     return {"message": "Successfully logged out"}
+
 
 def get_current_user(
     request: Request,
