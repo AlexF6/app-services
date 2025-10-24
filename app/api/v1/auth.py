@@ -119,7 +119,7 @@ def login_for_access_token(
         key="access_token",
         value=f"Bearer {access_token}",
         httponly=True,
-        secure=True,
+        secure=False,
         samesite="lax",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
@@ -172,12 +172,11 @@ def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    if token is None:
+    if not token or token.lower() in ("undefined", "null"):
         auth_cookie = request.cookies.get("access_token")
-        if auth_cookie and auth_cookie.startswith("Bearer "):
-            token = auth_cookie[7:]
-        else:
+        if not auth_cookie:
             raise credentials_exception
+        token = auth_cookie[7:] if auth_cookie.startswith("Bearer ") else auth_cookie
 
     payload = decode_access_token(token)
     if payload is None:
