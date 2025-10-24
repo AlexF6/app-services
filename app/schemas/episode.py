@@ -21,8 +21,10 @@ class EpisodeBase(BaseModel):
 
 class EpisodeCreate(EpisodeBase):
     """
+    
     Create a new episode associated with an existing content.
     """
+    video_url: str | None = None
 
 
 class EpisodeUpdate(BaseModel):
@@ -35,12 +37,14 @@ class EpisodeUpdate(BaseModel):
     title: Optional[str] = Field(None, max_length=200)
     duration_minutes: Optional[int] = Field(None, ge=1)
     release_date: Optional[date] = None
+    video_url: str | None = None
 
 
 class EpisodeOut(EpisodeBase, AuditOut):
     id: UUID
 
     model_config = ConfigDict(from_attributes=True)
+    video_url: str | None = None
 
 
 class EpisodeListItem(BaseModel):

@@ -27,6 +27,7 @@ class ContentBase(BaseModel):
         None,
         description="Comma-separated genres (e.g. Drama, Action, Fantasy)",
     )
+    video_url: str | None = Field(None, description="Remote video URL (MP4/M3U8/etc.)")
 
 
 class ContentCreate(ContentBase):
@@ -47,12 +48,14 @@ class ContentUpdate(BaseModel):
     duration_minutes: Optional[int] = Field(None, ge=1)
     age_rating: Optional[str] = Field(None, max_length=10)
     genres: Optional[str] = None
+    video_url: str | None = None
 
 
-class ContentOut(ContentBase, AuditOut):
+class ContentOut(AuditOut, ContentBase):
     id: UUID
 
     model_config = ConfigDict(from_attributes=True)
+    video_url: str | None = None
 
 
 class ContentListItem(BaseModel):
