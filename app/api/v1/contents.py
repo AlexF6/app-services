@@ -17,13 +17,13 @@ from app.schemas.content import (
     ContentCreate,
     ContentUpdate,
     ContentOut,
-    ContentListItem,
+    # ContentListItem,
 )
 
 router = APIRouter(prefix="/contents", tags=["Contents"])
 
 
-@router.get("", response_model=List[ContentListItem])
+@router.get("", response_model=List[ContentOut])
 def list_contents(
     db: Session = Depends(get_db),
     _: "User" = Depends(require_admin),
@@ -41,7 +41,7 @@ def list_contents(
     order_dir: str = Query("desc", pattern="^(asc|desc)$"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-) -> List[ContentListItem]:
+) -> List[ContentOut]:
     """
     Lists contents with filters and pagination (admin only for now).
     """
