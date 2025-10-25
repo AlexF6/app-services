@@ -48,6 +48,7 @@ class ProfileListItem(BaseModel):
     """A simplified schema for profile data, typically used for lists or summaries."""
 
     id: UUID
+    user_id: UUID
     name: str
     avatar: Optional[str] = None
     maturity_rating: Optional[str] = None

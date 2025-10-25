@@ -1,8 +1,8 @@
-"""cleanup_naming_and_translation
+"""Add VIDEOS to content_type enum
 
-Revision ID: eac3c878026e
+Revision ID: e144aed82f76
 Revises: 
-Create Date: 2025-10-01 13:50:59.529256
+Create Date: 2025-10-23 23:15:31.356180
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'eac3c878026e'
+revision: str = 'e144aed82f76'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -45,12 +45,13 @@ def upgrade() -> None:
     op.create_table('contents',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('title', sa.String(length=200), nullable=False),
-    sa.Column('type', sa.Enum('MOVIE', 'SERIES', name='content_type'), nullable=False),
+    sa.Column('type', sa.Enum('MOVIE', 'SERIES', 'VIDEOS', name='content_type'), nullable=False),
     sa.Column('description', sa.Text(), nullable=True),
     sa.Column('release_year', sa.Integer(), nullable=True),
     sa.Column('duration_minutes', sa.Integer(), nullable=True),
     sa.Column('age_rating', sa.String(length=10), nullable=True),
     sa.Column('genres', sa.Text(), nullable=True),
+    sa.Column('video_url', sa.Text(), nullable=True),
     sa.Column('created_by', sa.UUID(), nullable=False),
     sa.Column('updated_by', sa.UUID(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
@@ -106,6 +107,7 @@ def upgrade() -> None:
     sa.Column('title', sa.String(length=200), nullable=False),
     sa.Column('duration_minutes', sa.Integer(), nullable=True),
     sa.Column('release_date', sa.Date(), nullable=True),
+    sa.Column('video_url', sa.Text(), nullable=True),
     sa.Column('created_by', sa.UUID(), nullable=False),
     sa.Column('updated_by', sa.UUID(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
