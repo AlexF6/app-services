@@ -25,6 +25,12 @@ class ProfileCreate(ProfileBase):
     Create a new profile for a user.
     """
 
+class ProfileCreateMe(BaseModel):
+    """User-scoped create schema (no user_id in payload)."""
+    name: str = Field(..., min_length=1, max_length=60)
+    avatar: Optional[str] = Field(None, max_length=255)
+    maturity_rating: Optional[str] = Field(None, max_length=20)
+
 
 class ProfileUpdate(BaseModel):
     """

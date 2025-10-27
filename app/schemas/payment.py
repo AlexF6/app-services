@@ -67,6 +67,7 @@ class PaymentListItem(BaseModel):
     """A simplified schema for payment data, typically used for lists or summaries."""
 
     id: UUID
+    user_id: UUID
     amount: Decimal
     currency: str
     status: PaymentStatus
