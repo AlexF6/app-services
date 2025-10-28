@@ -13,6 +13,7 @@ from app.api.v1 import profiles
 from app.api.v1 import me_profiles
 from app.api.v1 import watchlist
 from app.api.v1 import playbacks
+from app.api.v1 import me_playbacks
 from app.api.v1 import episodes
 
 app = FastAPI()
@@ -29,6 +30,8 @@ app.include_router(contents.router)
 app.include_router(watchlist.router)
 app.include_router(episodes.router)
 app.include_router(playbacks.router)
+app.include_router(me_playbacks.router)
+
 
 origins = [
     "http://localhost:4200",
