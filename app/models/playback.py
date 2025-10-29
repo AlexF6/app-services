@@ -1,3 +1,4 @@
+# app/models/playback.py
 import uuid
 from sqlalchemy import (
     Column,
@@ -8,6 +9,8 @@ from sqlalchemy import (
     ForeignKey,
     Boolean,
     func,
+    Index,
+    CheckConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -56,17 +59,22 @@ class Playback(AuditMixin, Base):
         foreign_keys=[profile_id],
         passive_deletes=True,
     )
-
     content = relationship(
         "Content",
         back_populates="playbacks",
         foreign_keys=[content_id],
         passive_deletes=True,
     )
-
     episode = relationship(
         "Episode",
         back_populates="playbacks",
         foreign_keys=[episode_id],
         passive_deletes=True,
+    )
+
+    __table_args__ = (
+        # Common filters/sorts
+        Index("ix_playbacks_profile_started", "profile_id", "started_at"),
+        Index("ix_playbacks_content_episode", "content_id", "episode_id"),
+        CheckConstraint("progress_seconds >= 0", name="ck_playbacks_progress_nonneg"),
     )

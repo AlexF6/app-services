@@ -13,6 +13,7 @@ from app.api.v1 import plans
 from app.api.v1 import me_plans
 from app.api.v1 import contents
 from app.api.v1 import me_contents
+from app.api.v1 import public_contents
 from app.api.v1 import profiles
 from app.api.v1 import me_profiles
 from app.api.v1 import watchlist
@@ -37,6 +38,7 @@ app.include_router(profiles.router)
 app.include_router(me_profiles.router)
 app.include_router(contents.router)
 app.include_router(me_contents.router)
+app.include_router(public_contents.router)
 app.include_router(watchlist.router)
 app.include_router(me_watchlist.router)
 app.include_router(episodes.router)
