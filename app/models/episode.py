@@ -1,3 +1,4 @@
+# app/models/episode.py
 import uuid
 from sqlalchemy import Column, String, Text, text, Integer, ForeignKey, Date
 from sqlalchemy.dialects.postgresql import UUID
@@ -24,7 +25,7 @@ class Episode(AuditMixin, Base):
     season_number = Column(Integer, nullable=False)
     episode_number = Column(Integer, nullable=False)
     title = Column(String(200), nullable=False)
-    duration_minutes = Column(Integer, nullable=True)
+    duration_seconds = Column(Integer, nullable=True)
     release_date = Column(Date, nullable=True)
     video_url = Column(Text, nullable=True)
 

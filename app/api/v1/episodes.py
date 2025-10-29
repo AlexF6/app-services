@@ -26,12 +26,6 @@ content_router = APIRouter(
 
 
 def _ensure_content(db: Session, content_id: UUID) -> Content:
-    """
-    Ensures that a content item exists for the given ID.
-
-    Raises:
-        HTTPException: 404 Not Found if content does not exist.
-    """
     c = db.get(Content, content_id)
     if not c:
         raise HTTPException(status_code=404, detail="Content not found")
@@ -45,10 +39,6 @@ def _exists_number_for_content(
     episode_number: int,
     exclude_id: Optional[UUID] = None,
 ) -> bool:
-    """
-    Checks if an episode with the given season and episode number already exists
-    for the specified content ID, optionally excluding a specific episode ID.
-    """
     q = db.query(Episode).filter(
         Episode.content_id == content_id,
         Episode.season_number == season_number,
@@ -67,8 +57,8 @@ def list_episodes(
     season: Optional[int] = Query(None, ge=1),
     ep: Optional[int] = Query(None, ge=1, description="Exact episode_number"),
     q_title: Optional[str] = Query(None, description="Search by title (ilike)"),
-    min_duration: Optional[int] = Query(None, ge=1),
-    max_duration: Optional[int] = Query(None, ge=1),
+    min_duration: Optional[int] = Query(None, ge=1, description="Min duration in seconds"),
+    max_duration: Optional[int] = Query(None, ge=1, description="Max duration in seconds"),
     year_from: Optional[int] = Query(None, ge=1800, le=2100),
     year_to: Optional[int] = Query(None, ge=1800, le=2100),
     order_by: str = Query(
@@ -80,6 +70,7 @@ def list_episodes(
 ) -> List[EpisodeListItem]:
     """
     Lists episodes with filters and pagination (admin only).
+    Durations are in **seconds**.
     """
     q = db.query(Episode)
 
@@ -93,9 +84,9 @@ def list_episodes(
         like = f"%{q_title.lower()}%"
         q = q.filter(func.lower(Episode.title).ilike(like))
     if min_duration is not None:
-        q = q.filter(Episode.duration_minutes >= min_duration)
+        q = q.filter(Episode.duration_seconds >= min_duration)
     if max_duration is not None:
-        q = q.filter(Episode.duration_minutes <= max_duration)
+        q = q.filter(Episode.duration_seconds <= max_duration)
     if year_from is not None:
         q = q.filter(Episode.release_date >= f"{year_from}-01-01")
     if year_to is not None:
@@ -121,12 +112,6 @@ def get_episode(
     db: Session = Depends(get_db),
     _: "User" = Depends(require_admin),
 ) -> Episode:
-    """
-    Retrieves a single episode by its ID (admin only).
-
-    Raises:
-        HTTPException: 404 Not Found if episode does not exist.
-    """
     e = db.get(Episode, episode_id)
     if not e:
         raise HTTPException(status_code=404, detail="Episode not found")
@@ -139,13 +124,6 @@ def create_episode(
     db: Session = Depends(get_db),
     admin: "User" = Depends(require_admin),
 ) -> Episode:
-    """
-    Creates an episode for a content item. Enforces optional uniqueness for (content_id, season_number, episode_number) (admin only).
-
-    Raises:
-        HTTPException: 404 Not Found if the content ID is invalid.
-        HTTPException: 409 Conflict if episode number already exists for that content/season.
-    """
     _ensure_content(db, payload.content_id)
 
     if _exists_number_for_content(
@@ -161,8 +139,9 @@ def create_episode(
         season_number=payload.season_number,
         episode_number=payload.episode_number,
         title=payload.title,
-        duration_minutes=payload.duration_minutes,
+        duration_seconds=payload.duration_seconds,
         release_date=payload.release_date,
+        video_url=payload.video_url,
         created_by=admin.id,
     )
     db.add(entity)
@@ -178,25 +157,12 @@ def update_episode(
     db: Session = Depends(get_db),
     admin: "User" = Depends(require_admin),
 ) -> Episode:
-    """
-    Updates an existing episode. Validates uniqueness if season or episode number is modified (admin only).
-
-    Raises:
-        HTTPException: 404 Not Found if episode does not exist.
-        HTTPException: 409 Conflict if the update would violate the season/episode number uniqueness.
-    """
     e = db.get(Episode, episode_id)
     if not e:
         raise HTTPException(status_code=404, detail="Episode not found")
 
-    new_season = (
-        payload.season_number if payload.season_number is not None else e.season_number
-    )
-    new_episode = (
-        payload.episode_number
-        if payload.episode_number is not None
-        else e.episode_number
-    )
+    new_season = payload.season_number if payload.season_number is not None else e.season_number
+    new_episode = payload.episode_number if payload.episode_number is not None else e.episode_number
 
     if new_season != e.season_number or new_episode != e.episode_number:
         if _exists_number_for_content(
@@ -213,10 +179,12 @@ def update_episode(
         e.episode_number = payload.episode_number
     if payload.title is not None:
         e.title = payload.title
-    if payload.duration_minutes is not None:
-        e.duration_minutes = payload.duration_minutes
+    if payload.duration_seconds is not None:
+        e.duration_seconds = payload.duration_seconds
     if payload.release_date is not None:
         e.release_date = payload.release_date
+    if payload.video_url is not None:
+        e.video_url = payload.video_url
 
     e.updated_by = admin.id
     db.commit()
@@ -230,12 +198,9 @@ def delete_episode(
     db: Session = Depends(get_db),
     _: "User" = Depends(require_admin),
 ) -> Response:
-    """
-    Deletes an episode (admin only).
-    """
     e = db.get(Episode, episode_id)
     if not e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Episode not found")
     db.delete(e)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -255,12 +220,6 @@ def list_episodes_by_content(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
 ) -> List[EpisodeListItem]:
-    """
-    Lists episodes belonging to a specific content item, with filtering and ordering (admin only).
-
-    Raises:
-        HTTPException: 404 Not Found if the content ID is invalid.
-    """
     _ensure_content(db, content_id)
 
     q = db.query(Episode).filter(Episode.content_id == content_id)
@@ -289,15 +248,6 @@ def create_episode_for_content(
     db: Session = Depends(get_db),
     admin: "User" = Depends(require_admin),
 ) -> Episode:
-    """
-    Creates an episode linked to the `content_id` in the route path.
-    Requires: title, season_number, episode_number (via EpisodeUpdate for convenience) (admin only).
-
-    Raises:
-        HTTPException: 404 Not Found if the content ID is invalid.
-        HTTPException: 400 Bad Request if required fields are missing.
-        HTTPException: 409 Conflict if episode number already exists for that content/season.
-    """
     _ensure_content(db, content_id)
 
     if not payload.title or not payload.season_number or not payload.episode_number:
@@ -319,8 +269,9 @@ def create_episode_for_content(
         season_number=payload.season_number,
         episode_number=payload.episode_number,
         title=payload.title,
-        duration_minutes=payload.duration_minutes,
+        duration_seconds=payload.duration_seconds,
         release_date=payload.release_date,
+        video_url=payload.video_url,
         created_by=admin.id,
     )
     db.add(entity)
