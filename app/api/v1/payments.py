@@ -1,3 +1,4 @@
+# app/api/v1/payments.py
 from __future__ import annotations
 
 from fastapi import Response
@@ -173,22 +174,15 @@ def create_payment(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ) -> Payment:
-    """
-    Creates a new payment (admin only). Validates user/subscription consistency and manages status/paid_at fields.
-
-    Raises:
-        HTTPException: 404 Not Found if User or Subscription doesn't exist.
-        HTTPException: 409 Conflict if subscription_id does not belong to the provided user_id.
-    """
     _ensure_user_and_subscription(db, payload.user_id, payload.subscription_id)
 
     entity = Payment(
         user_id=payload.user_id,
         subscription_id=payload.subscription_id,
         amount=payload.amount,
-        currency=payload.currency or "USD",
-        provider=payload.provider,
-        external_id=payload.external_id,
+        currency=(payload.currency or "USD").upper(),
+        provider=(payload.provider or None),         
+        external_id=(payload.external_id or None),   
         status=payload.status or PaymentStatus.PENDING,
         created_by=admin.id,
     )
