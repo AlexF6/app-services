@@ -1,9 +1,13 @@
 # app/api/v1/me_playbacks.py
-from datetime import datetime
+from __future__ import annotations
+
+from datetime import datetime, timezone
 from typing import Optional, List
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from app.core.database import get_db
 from app.api.v1.auth import get_current_user
@@ -13,18 +17,20 @@ from app.schemas.playback import PlaybackOut, PlaybackListItem
 
 router = APIRouter(prefix="/me/playbacks", tags=["Playbacks (Me)"])
 
+
 def _ensure_owner(db: Session, me: User, playback_id: UUID) -> Playback:
     """Ensure the playback belongs to one of the user's profiles."""
     playback = db.get(Playback, playback_id)
     if not playback:
         raise HTTPException(status_code=404, detail="Playback not found")
-    
-    # Check if playback belongs to one of user's profiles
+
     user_profile_ids = [profile.id for profile in me.profiles]
     if playback.profile_id not in user_profile_ids:
+        # Hide existence
         raise HTTPException(status_code=404, detail="Playback not found")
-    
+
     return playback
+
 
 @router.get("", response_model=List[PlaybackListItem])
 def list_my_playbacks(
@@ -43,17 +49,14 @@ def list_my_playbacks(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ):
-    # Get user's profile IDs
     profile_ids = [profile.id for profile in me.profiles]
-    
     if not profile_ids:
-        return []  # User has no profiles
-    
+        return []
+
     q = db.query(Playback).filter(Playback.profile_id.in_(profile_ids))
 
-    # Apply filters
     if completed is not None:
-        q = q.filter(Playback.completed == completed)
+        q = q.filter(Playback.completed.is_(completed))
     if device:
         q = q.filter(Playback.device.ilike(f"%{device}%"))
     if content_id:
@@ -65,18 +68,17 @@ def list_my_playbacks(
     if started_to:
         q = q.filter(Playback.started_at <= started_to)
     if ended_from:
-        q = q.filter(Playback.ended_at >= ended_from)
+        q = q.filter(Playback.ended_at.is_not(None), Playback.ended_at >= ended_from)
     if ended_to:
-        q = q.filter(Playback.ended_at <= ended_to)
+        q = q.filter(Playback.ended_at.is_not(None), Playback.ended_at <= ended_to)
     if min_progress is not None:
         q = q.filter(Playback.progress_seconds >= min_progress)
     if max_progress is not None:
         q = q.filter(Playback.progress_seconds <= max_progress)
 
-    # Order by most recent first
     q = q.order_by(Playback.started_at.desc().nullslast(), Playback.created_at.desc())
-    
     return q.limit(limit).offset(offset).all()
+
 
 @router.get("/{playback_id}", response_model=PlaybackOut)
 def get_my_playback(
@@ -84,8 +86,8 @@ def get_my_playback(
     db: Session = Depends(get_db),
     me: User = Depends(get_current_user),
 ):
-    """Get a specific playback record belonging to the current user."""
     return _ensure_owner(db, me, playback_id)
+
 
 @router.delete("/{playback_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_my_playback(
@@ -93,11 +95,11 @@ def delete_my_playback(
     db: Session = Depends(get_db),
     me: User = Depends(get_current_user),
 ):
-    """Delete a playback record belonging to the current user."""
     playback = _ensure_owner(db, me, playback_id)
     db.delete(playback)
     db.commit()
     return None
+
 
 @router.post("/{playback_id}/complete", response_model=PlaybackOut)
 def mark_playback_completed(
@@ -105,10 +107,10 @@ def mark_playback_completed(
     db: Session = Depends(get_db),
     me: User = Depends(get_current_user),
 ):
-    """Mark a playback as completed."""
     playback = _ensure_owner(db, me, playback_id)
     playback.completed = True
-    playback.ended_at = datetime.utcnow()
+    if playback.ended_at is None:
+        playback.ended_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(playback)
-    return playback 
+    return playback

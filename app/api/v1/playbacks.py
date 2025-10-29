@@ -1,3 +1,4 @@
+# app/api/v1/playbacks.py
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -32,12 +33,6 @@ me_router = APIRouter(
 
 
 def _ensure_profile(db: Session, profile_id: UUID) -> Profile:
-    """
-    Ensures that a profile exists for the given ID.
-
-    Raises:
-        HTTPException: 404 Not Found if profile does not exist.
-    """
     prof = db.get(Profile, profile_id)
     if not prof:
         raise HTTPException(status_code=404, detail="Profile not found")
@@ -45,12 +40,6 @@ def _ensure_profile(db: Session, profile_id: UUID) -> Profile:
 
 
 def _ensure_content(db: Session, content_id: UUID) -> Content:
-    """
-    Ensures that a content item exists for the given ID.
-
-    Raises:
-        HTTPException: 404 Not Found if content does not exist.
-    """
     cnt = db.get(Content, content_id)
     if not cnt:
         raise HTTPException(status_code=404, detail="Content not found")
@@ -58,12 +47,6 @@ def _ensure_content(db: Session, content_id: UUID) -> Content:
 
 
 def _ensure_episode(db: Session, episode_id: Optional[UUID]) -> Optional[Episode]:
-    """
-    Ensures that an episode exists for the given ID, if provided.
-
-    Raises:
-        HTTPException: 404 Not Found if episode ID is provided but episode does not exist.
-    """
     if episode_id is None:
         return None
     ep = db.get(Episode, episode_id)
@@ -73,12 +56,6 @@ def _ensure_episode(db: Session, episode_id: Optional[UUID]) -> Optional[Episode
 
 
 def _ensure_episode_matches_content(ep: Episode, content_id: UUID) -> None:
-    """
-    Checks if an episode belongs to the specified content.
-
-    Raises:
-        HTTPException: 409 Conflict if the episode content_id does not match the provided content_id.
-    """
     if getattr(ep, "content_id", None) != content_id:
         raise HTTPException(
             status_code=409, detail="Episode does not belong to given content"
@@ -86,12 +63,6 @@ def _ensure_episode_matches_content(ep: Episode, content_id: UUID) -> None:
 
 
 def _profile_belongs_to_user(profile: Profile, user_id: UUID) -> None:
-    """
-    Checks if a profile belongs to the specified user.
-
-    Raises:
-        HTTPException: 403 Forbidden if the profile user_id does not match the provided user_id.
-    """
     if profile.user_id != user_id:
         raise HTTPException(
             status_code=403, detail="Profile does not belong to current user"
@@ -104,12 +75,6 @@ def _normalize_progress_and_completion(
     upd_completed: Optional[bool],
     upd_ended_at: Optional[datetime],
 ) -> None:
-    """
-    Normalizes progress, completed status, and ended_at timestamp based on update rules.
-
-    Raises:
-        HTTPException: 400 Bad Request if progress_seconds is negative.
-    """
     if upd_progress is not None:
         if upd_progress < 0:
             raise HTTPException(status_code=400, detail="progress_seconds must be >= 0")
@@ -158,7 +123,7 @@ def list_playbacks(
     if completed is not None:
         q = q.filter(Playback.completed.is_(completed))
     if device_q:
-        q = q.filter(func.lower(Playback.device).ilike(f"%{device_q.lower()}%"))
+        q = q.filter(Playback.device.ilike(f"%{device_q}%"))
 
     if started_from:
         q = q.filter(Playback.started_at >= started_from)
@@ -174,7 +139,7 @@ def list_playbacks(
     if max_progress is not None:
         q = q.filter(Playback.progress_seconds <= max_progress)
 
-    q = q.order_by(Playback.started_at.desc(), Playback.created_at.desc())
+    q = q.order_by(Playback.started_at.desc().nullslast(), Playback.created_at.desc())
     return q.limit(limit).offset(offset).all()
 
 
@@ -184,12 +149,6 @@ def get_playback(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ) -> Playback:
-    """
-    Retrieves a single playback by ID (admin only).
-
-    Raises:
-        HTTPException: 404 Not Found if playback does not exist.
-    """
     pb = db.get(Playback, playback_id)
     if not pb:
         raise HTTPException(status_code=404, detail="Playback not found")
@@ -202,14 +161,6 @@ def create_playback(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ) -> Playback:
-    """
-    Creates a playback record (admin only). Validates profile, content, and episode consistency.
-
-    Raises:
-        HTTPException: 404 Not Found if profile, content, or episode ID is invalid.
-        HTTPException: 409 Conflict if episode does not belong to the content.
-        HTTPException: 400 Bad Request if progress_seconds is negative.
-    """
     prof = _ensure_profile(db, payload.profile_id)
     cnt = _ensure_content(db, payload.content_id)
     ep = _ensure_episode(db, payload.episode_id)
@@ -244,13 +195,6 @@ def update_playback(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ) -> Playback:
-    """
-    Updates a playback record (admin only). Normalizes progress and completion fields.
-
-    Raises:
-        HTTPException: 404 Not Found if playback does not exist.
-        HTTPException: 400 Bad Request if progress_seconds is negative.
-    """
     pb = db.get(Playback, playback_id)
     if not pb:
         raise HTTPException(status_code=404, detail="Playback not found")
@@ -274,12 +218,9 @@ def delete_playback(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ) -> Response:
-    """
-    Deletes a playback record (hard delete, admin only).
-    """
     pb = db.get(Playback, playback_id)
     if not pb:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Playback not found")
     db.delete(pb)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -296,13 +237,6 @@ def my_profile_playbacks(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ) -> List[PlaybackListItem]:
-    """
-    Lists playbacks for a specific profile belonging to the authenticated user.
-
-    Raises:
-        HTTPException: 404 Not Found if profile does not exist.
-        HTTPException: 403 Forbidden if the profile does not belong to the current user.
-    """
     prof = _ensure_profile(db, profile_id)
     _profile_belongs_to_user(prof, me.id)
 
@@ -314,7 +248,7 @@ def my_profile_playbacks(
     if completed is not None:
         q = q.filter(Playback.completed.is_(completed))
 
-    q = q.order_by(Playback.started_at.desc(), Playback.created_at.desc())
+    q = q.order_by(Playback.started_at.desc().nullslast(), Playback.created_at.desc())
     return q.limit(limit).offset(offset).all()
 
 
@@ -325,16 +259,6 @@ def start_playback_for_my_profile(
     db: Session = Depends(get_db),
     me: User = Depends(get_current_user),
 ) -> Playback:
-    """
-    Starts a new playback for a profile belonging to the authenticated user.
-
-    Raises:
-        HTTPException: 404 Not Found if profile or content is invalid.
-        HTTPException: 403 Forbidden if the profile does not belong to the current user.
-        HTTPException: 400 Bad Request if profile_id in payload doesn't match route parameter.
-        HTTPException: 409 Conflict if episode does not belong to the content.
-        HTTPException: 400 Bad Request if progress_seconds is negative.
-    """
     prof = _ensure_profile(db, profile_id)
     _profile_belongs_to_user(prof, me.id)
 
@@ -377,14 +301,6 @@ def update_my_profile_playback(
     db: Session = Depends(get_db),
     me: User = Depends(get_current_user),
 ) -> Playback:
-    """
-    Updates an existing playback record for a profile belonging to the authenticated user.
-
-    Raises:
-        HTTPException: 404 Not Found if profile or playback does not exist, or if playback doesn't belong to the profile.
-        HTTPException: 403 Forbidden if the profile does not belong to the current user.
-        HTTPException: 400 Bad Request if progress_seconds is negative.
-    """
     prof = _ensure_profile(db, profile_id)
     _profile_belongs_to_user(prof, me.id)
 
@@ -412,13 +328,6 @@ def finish_my_profile_playback(
     db: Session = Depends(get_db),
     me: User = Depends(get_current_user),
 ) -> Playback:
-    """
-    Marks a playback as completed (completed=True, sets ended_at to now if missing) for a profile belonging to the authenticated user.
-
-    Raises:
-        HTTPException: 404 Not Found if profile or playback does not exist, or if playback doesn't belong to the profile.
-        HTTPException: 403 Forbidden if the profile does not belong to the current user.
-    """
     prof = _ensure_profile(db, profile_id)
     _profile_belongs_to_user(prof, me.id)
 
@@ -444,21 +353,13 @@ def delete_my_profile_playback(
     db: Session = Depends(get_db),
     me: User = Depends(get_current_user),
 ) -> Response:
-    """
-    Deletes a playback record for a profile belonging to the authenticated user.
-
-    Raises:
-        HTTPException: 404 Not Found if profile does not exist.
-        HTTPException: 403 Forbidden if the profile does not belong to the current user.
-    """
     prof = _ensure_profile(db, profile_id)
     _profile_belongs_to_user(prof, me.id)
 
     pb = db.get(Playback, playback_id)
     if not pb or pb.profile_id != profile_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Playback not found")
 
     db.delete(pb)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-
