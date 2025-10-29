@@ -4,6 +4,7 @@ from app.core.database import engine
 from app.core.config import settings
 from app.api.v1 import auth
 from app.api.v1 import users
+from app.api.v1 import me_users
 from app.api.v1 import subscriptions
 from app.api.v1 import me_subscriptions
 from app.api.v1 import payments
@@ -19,11 +20,13 @@ from app.api.v1 import me_watchlist
 from app.api.v1 import playbacks
 from app.api.v1 import me_playbacks
 from app.api.v1 import episodes
+from app.api.v1 import me_episodes
 
 app = FastAPI()
 
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(me_users.router)
 app.include_router(plans.router)
 app.include_router(me_plans.router)
 app.include_router(subscriptions.router)
@@ -37,6 +40,7 @@ app.include_router(me_contents.router)
 app.include_router(watchlist.router)
 app.include_router(me_watchlist.router)
 app.include_router(episodes.router)
+app.include_router(me_episodes.router)
 app.include_router(playbacks.router)
 app.include_router(me_playbacks.router)
 
