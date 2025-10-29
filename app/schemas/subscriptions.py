@@ -1,3 +1,4 @@
+# app/schemas/subscriptions.py
 from datetime import date, datetime
 from uuid import UUID
 from typing import Optional
