@@ -1,3 +1,4 @@
+# app/models/watchlist.py
 import uuid
 from sqlalchemy import Column, DateTime, text, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
