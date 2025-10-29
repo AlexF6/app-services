@@ -1,3 +1,4 @@
+# app/models/plan.py
 import uuid
 from sqlalchemy import Column, String, text, Numeric, Integer
 from sqlalchemy.dialects.postgresql import UUID
