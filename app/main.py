@@ -7,6 +7,7 @@ from app.api.v1 import users
 from app.api.v1 import subscriptions
 from app.api.v1 import me_subscriptions
 from app.api.v1 import payments
+from app.api.v1 import me_payments
 from app.api.v1 import plans
 from app.api.v1 import me_plans
 from app.api.v1 import contents
@@ -28,6 +29,7 @@ app.include_router(me_plans.router)
 app.include_router(subscriptions.router)
 app.include_router(me_subscriptions.router)
 app.include_router(payments.router)
+app.include_router(me_payments.router)
 app.include_router(profiles.router)
 app.include_router(me_profiles.router)
 app.include_router(contents.router)
