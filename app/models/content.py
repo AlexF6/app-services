@@ -23,6 +23,7 @@ class Content(AuditMixin, Base):
     age_rating = Column(String(10), nullable=True)
     genres = Column(Text, nullable=True)
     video_url = Column(Text, nullable=True)
+    thumbnail = Column(Text, nullable=True)
 
     episodes = relationship(
         "Episode",

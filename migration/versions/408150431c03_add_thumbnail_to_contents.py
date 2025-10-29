@@ -1,8 +1,8 @@
-"""add_user_id_to_profile_list_item_schema
+"""add thumbnail to contents
 
-Revision ID: 5f7a0148f9ff
-Revises: e144aed82f76
-Create Date: 2025-10-24 23:31:05.336837
+Revision ID: 408150431c03
+Revises: 
+Create Date: 2025-10-28 19:00:56.130036
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '5f7a0148f9ff'
-down_revision: Union[str, Sequence[str], None] = 'e144aed82f76'
+revision: str = '408150431c03'
+down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
