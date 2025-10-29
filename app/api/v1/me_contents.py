@@ -16,6 +16,7 @@ from app.schemas.content import ContentListItem, ContentOut
 
 router = APIRouter(prefix="/me/contents", tags=["My Contents"])
 
+
 @router.get("", response_model=List[ContentListItem])
 def list_my_contents(
     db: Session = Depends(get_db),
@@ -37,7 +38,7 @@ def list_my_contents(
         Content.release_year,
         Content.age_rating,
         Content.genres,
-        Content.duration_minutes,
+        Content.duration_seconds,
         Content.thumbnail,
         Content.created_at,
     )
@@ -73,7 +74,7 @@ def list_my_contents(
                 "release_year": r.release_year,
                 "age_rating": r.age_rating,
                 "genres": r.genres,
-                "duration_minutes": r.duration_minutes,
+                "duration_seconds": r.duration_seconds,
                 "thumbnail": r.thumbnail,
             }
         )
