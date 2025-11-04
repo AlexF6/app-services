@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from app.core.database import engine
 from app.core.config import settings
 from app.api.v1 import auth
@@ -24,6 +25,7 @@ from app.api.v1 import episodes
 from app.api.v1 import me_episodes
 
 app = FastAPI()
+app.mount("/media", StaticFiles(directory="media"), name="media")
 
 app.include_router(auth.router)
 app.include_router(users.router)
