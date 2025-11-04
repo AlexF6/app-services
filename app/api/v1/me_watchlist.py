@@ -6,6 +6,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from pydantic import Field
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -18,6 +19,7 @@ from app.models.watchlist import Watchlist
 
 from app.schemas.watchlist import (
     WatchlistCreate,
+    WatchlistCreateMe,
     WatchlistUpdate,
     WatchlistOut,
     WatchlistListItem,
@@ -122,24 +124,37 @@ def get_my_watchlist_item(
     entity = _ensure_watchlist_item_of_user(db, watchlist_id, current_user.id)
     return entity
 
-
 @router.post("", response_model=WatchlistOut, status_code=status.HTTP_201_CREATED)
 def create_my_watchlist_item(
-    payload: WatchlistCreate,
+    payload: WatchlistCreateMe,
+    response: Response,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Watchlist:
-    """
-    Adds content to your watchlist (for a profile you own). Prevents duplicates.
-    """
-    _ensure_profile_of_user(db, payload.profile_id, current_user.id)
+    if payload.profile_id is None:
+        profiles = db.query(Profile).filter(Profile.user_id == current_user.id).all()
+        if len(profiles) == 0:
+            raise HTTPException(status_code=400, detail="You have no profiles")
+        if len(profiles) > 1:
+            raise HTTPException(status_code=400, detail="Multiple profiles. Specify profile_id.")
+        profile_id = profiles[0].id
+    else:
+        _ensure_profile_of_user(db, payload.profile_id, current_user.id)
+        profile_id = payload.profile_id
+
     _ensure_content_exists(db, payload.content_id)
 
-    if _exists_watchlist_item(db, payload.profile_id, payload.content_id):
-        raise HTTPException(status_code=409, detail="Item already exists in watchlist")
+    existing = (
+        db.query(Watchlist)
+        .filter(Watchlist.profile_id == profile_id, Watchlist.content_id == payload.content_id)
+        .first()
+    )
+    if existing:
+        response.status_code = status.HTTP_200_OK
+        return existing
 
     entity = Watchlist(
-        profile_id=payload.profile_id,
+        profile_id=profile_id,
         content_id=payload.content_id,
         created_by=current_user.id,
     )
@@ -147,7 +162,6 @@ def create_my_watchlist_item(
     db.commit()
     db.refresh(entity)
     return entity
-
 
 @router.put("/{watchlist_id}", response_model=WatchlistOut)
 def update_my_watchlist_item(
@@ -209,15 +223,12 @@ def delete_my_watchlist_item_by_pair(
     Only works for your own profile.
     """
     _ensure_profile_of_user(db, profile_id, current_user.id)
-
     entity = (
         db.query(Watchlist)
         .filter(Watchlist.profile_id == profile_id, Watchlist.content_id == content_id)
         .first()
     )
-    if not entity:
-        raise HTTPException(status_code=404, detail="Watchlist item not found")
-
-    db.delete(entity)
-    db.commit()
+    if entity:
+        db.delete(entity)
+        db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
