@@ -1,3 +1,4 @@
+# app/models/profile.py
 from sqlalchemy import Column, String, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship

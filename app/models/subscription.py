@@ -1,3 +1,4 @@
+# app/models/subscription.py
 import uuid
 from sqlalchemy import (
     Column,

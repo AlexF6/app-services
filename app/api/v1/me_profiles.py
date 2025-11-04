@@ -8,23 +8,27 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.api.deps import require_admin
+from app.api.v1.auth import get_current_user
 
 from app.models.user import User
 from app.models.profile import Profile
 
 from app.schemas.profile import (
-    ProfileCreate,
+    ProfileCreateMe,
     ProfileUpdate,
     ProfileOut,
     ProfileListItem,
 )
 
-router = APIRouter(prefix="/profiles", tags=["Profiles"])
+router = APIRouter(prefix="/me/profiles", tags=["Profiles (My)"])
 
-def _ensure_user(db: Session, user_id: UUID) -> None:
-    if not db.get(User, user_id):
-        raise HTTPException(status_code=404, detail="User not found")
+def _profile_belongs_to(db: Session, profile_id: UUID, owner_id: UUID) -> Profile:
+    prof = db.get(Profile, profile_id)
+    if not prof:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    if prof.user_id != owner_id:
+        raise HTTPException(status_code=403, detail="Profile does not belong to current user")
+    return prof
 
 def _exists_name_for_user(
     db: Session, user_id: UUID, name: str, exclude_id: Optional[UUID] = None
@@ -38,49 +42,34 @@ def _exists_name_for_user(
     return db.query(q.exists()).scalar()
 
 @router.get("", response_model=List[ProfileListItem])
-def list_profiles(
+def my_profiles(
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
-    user_id: Optional[UUID] = Query(None),
+    me: User = Depends(get_current_user),
     q: Optional[str] = Query(None, description="Search by name"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ) -> List[ProfileListItem]:
-    query = db.query(Profile)
-    if user_id:
-        query = query.filter(Profile.user_id == user_id)
+    query = db.query(Profile).filter(Profile.user_id == me.id)
     if q:
         query = query.filter(Profile.name.ilike(f"%{q}%"))
     query = query.order_by(Profile.created_at.desc())
     return query.limit(limit).offset(offset).all()
 
-@router.get("/{profile_id}", response_model=ProfileOut)
-def get_profile(
-    profile_id: UUID,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
-) -> Profile:
-    prof = db.get(Profile, profile_id)
-    if not prof:
-        raise HTTPException(status_code=404, detail="Profile not found")
-    return prof
-
 @router.post("", response_model=ProfileOut, status_code=status.HTTP_201_CREATED)
-def create_profile(
-    payload: ProfileCreate,
+def create_my_profile(
+    payload: ProfileCreateMe,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    me: User = Depends(get_current_user),
 ) -> Profile:
-    _ensure_user(db, payload.user_id)
-    if _exists_name_for_user(db, payload.user_id, payload.name):
+    if _exists_name_for_user(db, me.id, payload.name):
         raise HTTPException(status_code=409, detail="Profile name already exists for this user")
 
     entity = Profile(
-        user_id=payload.user_id,
+        user_id=me.id,
         name=payload.name,
         avatar=payload.avatar,
         maturity_rating=payload.maturity_rating,
-        created_by=admin.id,
+        created_by=me.id,
     )
     db.add(entity)
     db.commit()
@@ -88,18 +77,16 @@ def create_profile(
     return entity
 
 @router.put("/{profile_id}", response_model=ProfileOut)
-def update_profile(
+def update_my_profile(
     profile_id: UUID,
     payload: ProfileUpdate,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    me: User = Depends(get_current_user),
 ) -> Profile:
-    prof = db.get(Profile, profile_id)
-    if not prof:
-        raise HTTPException(status_code=404, detail="Profile not found")
+    prof = _profile_belongs_to(db, profile_id, me.id)
 
     if payload.name is not None and payload.name != prof.name:
-        if _exists_name_for_user(db, prof.user_id, payload.name, exclude_id=prof.id):
+        if _exists_name_for_user(db, me.id, payload.name, exclude_id=prof.id):
             raise HTTPException(status_code=409, detail="Profile name already exists for this user")
         prof.name = payload.name
 
@@ -108,20 +95,18 @@ def update_profile(
     if payload.maturity_rating is not None:
         prof.maturity_rating = payload.maturity_rating or None
 
-    prof.updated_by = admin.id
+    prof.updated_by = me.id
     db.commit()
     db.refresh(prof)
     return prof
 
 @router.delete("/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_profile(
+def delete_my_profile(
     profile_id: UUID,
     db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
+    me: User = Depends(get_current_user),
 ) -> Response:
-    prof = db.get(Profile, profile_id)
-    if not prof:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
+    prof = _profile_belongs_to(db, profile_id, me.id)
     db.delete(prof)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

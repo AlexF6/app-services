@@ -1,3 +1,4 @@
+# app/schemas/subscriptions.py
 from datetime import date, datetime
 from uuid import UUID
 from typing import Optional
@@ -28,6 +29,12 @@ class SubscriptionCreate(SubscriptionBase):
 
     'start_date' can be omitted to use the database's default value.
     """
+
+class SubscriptionCreateMe(BaseModel):
+    plan_id: UUID
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    renews_at: Optional[date] = None
 
 
 class SubscriptionUpdate(BaseModel):

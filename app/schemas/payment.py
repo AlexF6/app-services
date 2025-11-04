@@ -1,3 +1,4 @@
+# app/schemas/payment.py
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
@@ -67,11 +68,16 @@ class PaymentListItem(BaseModel):
     """A simplified schema for payment data, typically used for lists or summaries."""
 
     id: UUID
+    user_id: UUID
+    subscription_id: UUID
     amount: Decimal
     currency: str
     status: PaymentStatus
     paid_at: Optional[datetime] = None
     provider: Optional[str] = None
     external_id: Optional[str] = None
+
+    subscription_name: Optional[str] = None    # e.g. plan name or sub label
+    plan_name: Optional[str] = None            # if you have Subscription.plan
 
     model_config = ConfigDict(from_attributes=True)
