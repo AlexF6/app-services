@@ -8,6 +8,8 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.config import settings
+
 from app.api.v1.auth import get_current_user
 
 from app.models.user import User
@@ -61,6 +63,13 @@ def create_my_profile(
     db: Session = Depends(get_db),
     me: User = Depends(get_current_user),
 ) -> Profile:
+    current_count = db.query(Profile).filter(Profile.user_id == me.id).count()
+    if current_count >= settings.MAX_PROFILES_PER_USER:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Profile limit reached ({settings.MAX_PROFILES_PER_USER}).",
+        )
+
     if _exists_name_for_user(db, me.id, payload.name):
         raise HTTPException(status_code=409, detail="Profile name already exists for this user")
 

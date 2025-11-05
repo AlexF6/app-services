@@ -21,7 +21,7 @@ router = APIRouter(prefix="/me/plans", tags=["Plans (Me)"])
 @router.get("", response_model=List[PlanListItem])
 def list_available_plans(
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),  # ensure authenticated access
+    # _: User = Depends(get_current_user), 
     q: Optional[str] = Query(None, description="Search by name (ilike)"),
     min_price: Optional[Decimal] = Query(None, ge=Decimal("0")),
     max_price: Optional[Decimal] = Query(None, ge=Decimal("0")),
