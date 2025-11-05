@@ -15,4 +15,5 @@ class Settings(BaseSettings):
     APP_MODULE: str
     HOST: str
     PORT: int
+    MAX_PROFILES_PER_USER: int = 2 
 settings = Settings()

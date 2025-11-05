@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from uuid import UUID, uuid4
 from app.core.database import get_db
 from app.core.security import create_access_token, decode_access_token, verify_password
+from app.models.profile import Profile
 from app.models.user import User
 from app.schemas.token import MessageResponse
 from app.schemas.user import UserResponse, UserCreate
@@ -33,31 +34,18 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
-@router.post(
-    "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
-)
+@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register(user_create: UserCreate, db: Session = Depends(get_db)):
     """
-    Registers a new user in the system.
-
-    Checks if the email is already registered. Hashes the password and
-    creates a new user record in the database, assigning the same ID
-    to the 'created_by' field.
-
-    Args:
-        user_create: Data for the new user (name, email, password).
-        db: Dependency providing the database session.
-
-    Raises:
-        HTTPException: 400 Bad Request if the email is already registered.
-
-    Returns:
-        The newly created and persisted User object.
+    Registers a new user and creates a default profile in the same transaction.
     """
+    # 1) Validación de email existente
     if db.query(User).filter(User.email == user_create.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
 
     new_id = uuid4()
+
+    # 2) Construir entidades (sin commit todavía)
     user = User(
         id=new_id,
         name=user_create.name,
@@ -67,8 +55,27 @@ def register(user_create: UserCreate, db: Session = Depends(get_db)):
         created_by=new_id,
     )
 
-    db.add(user)
-    db.commit()
+    # Nombre de perfil por defecto: "Main" (o usa el nombre del usuario si quieres)
+    default_profile_name = user_create.name.split()[0]
+    # Si prefieres derivarlo del nombre: 
+    # default_profile_name = (user_create.name.split()[0] or "Main").strip()
+
+    profile = Profile(
+        user_id=new_id,
+        name=default_profile_name,
+        avatar=None,              # o una URL por defecto si ya la manejas
+        maturity_rating=None,     # ajusta si tienes un default distinto
+        created_by=new_id,
+    )
+
+    # 3) Transacción única
+    try:
+        db.add_all([user, profile])
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
     db.refresh(user)
     return user
 
