@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.schemas.base import AuditOut
 
 
@@ -28,7 +28,7 @@ class PlaybackBase(BaseModel):
         False, description="True if the content was finished watching"
     )
     device: Optional[str] = Field(
-        None, max_length=80, description="Device from which the content is played"
+        None, max_length=200, description="Device from which the content is played"
     )
 
 
@@ -47,7 +47,8 @@ class PlaybackUpdate(BaseModel):
     ended_at: Optional[datetime] = None
     progress_seconds: Optional[int] = Field(None, ge=0)
     completed: Optional[bool] = None
-    device: Optional[str] = Field(None, max_length=80)
+    device: Optional[str] = Field(None, max_length=200)
+
 
 
 class PlaybackOut(PlaybackBase, AuditOut):
@@ -55,13 +56,12 @@ class PlaybackOut(PlaybackBase, AuditOut):
 
     id: UUID
     started_at: datetime
-
+    duration_seconds: Optional[int] = None
+    # útil para mostrar "visto por última vez"
+    last_seen_at: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)
 
-
 class PlaybackListItem(BaseModel):
-    """A simplified schema for playback data, typically used for lists or summaries."""
-
     id: UUID
     profile_id: UUID
     content_id: UUID
@@ -69,7 +69,28 @@ class PlaybackListItem(BaseModel):
     started_at: datetime
     ended_at: Optional[datetime]
     progress_seconds: int
+    duration_seconds: Optional[int] = None
     completed: bool
     device: Optional[str]
-
+    last_seen_at: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)
+
+class PlaybackStartMe(BaseModel):
+    profile_id: UUID
+    content_id: Optional[UUID] = None
+    episode_id: Optional[UUID] = None
+    device: Optional[str] = Field(default=None, max_length=200)
+
+    @model_validator(mode="after")
+    def _ensure_one_target(self):
+        # Requiere al menos uno: content o episode
+        if not self.content_id and not self.episode_id:
+            raise ValueError("Provide content_id or episode_id")
+        return self
+
+
+class PlaybackUpdateMe(BaseModel):
+    # nombre consistente con tu modelo actual
+    progress_seconds: int = Field(ge=0)
+    duration_seconds: Optional[int] = Field(default=None, ge=0)
+    completed: Optional[bool] = None

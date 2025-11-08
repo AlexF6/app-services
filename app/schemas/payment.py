@@ -77,7 +77,7 @@ class PaymentListItem(BaseModel):
     provider: Optional[str] = None
     external_id: Optional[str] = None
 
-    subscription_name: Optional[str] = None    # e.g. plan name or sub label
-    plan_name: Optional[str] = None            # if you have Subscription.plan
+    subscription_name: Optional[str] = None
+    plan_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
