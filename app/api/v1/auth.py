@@ -3,9 +3,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, Securi
 from fastapi.security import APIKeyCookie, OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from uuid import UUID, uuid4
+
 from app.core.database import get_db
 from app.core.security import create_access_token, decode_access_token, verify_password
 from app.models.user import User
+from app.models.profile import Profile
 from app.schemas.token import MessageResponse
 from app.schemas.user import UserResponse, UserCreate
 from app.core.config import settings
@@ -36,31 +38,21 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
-@router.post(
-    "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
-)
+@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register(user_create: UserCreate, db: Session = Depends(get_db)):
     """
-    Registers a new user in the system.
+    Registers a new user in the system and creates a default profile.
 
     Checks if the email is already registered. Hashes the password and
     creates a new user record in the database, assigning the same ID
-    to the 'created_by' field.
-
-    Args:
-        user_create: Data for the new user (name, email, password).
-        db: Dependency providing the database session.
-
-    Raises:
-        HTTPException: 400 Bad Request if the email is already registered.
-
-    Returns:
-        The newly created and persisted User object.
+    to the 'created_by' field. Additionally, creates a default Profile
+    linked to the new user within the same transaction.
     """
     if db.query(User).filter(User.email == user_create.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
 
     new_id = uuid4()
+
     user = User(
         id=new_id,
         name=user_create.name,
@@ -70,8 +62,23 @@ def register(user_create: UserCreate, db: Session = Depends(get_db)):
         created_by=new_id,
     )
 
-    db.add(user)
-    db.commit()
+    default_profile_name = (user_create.name.split()[0] or "Main").strip()
+
+    profile = Profile(
+        user_id=new_id,
+        name=default_profile_name,
+        avatar=None,
+        maturity_rating=None,
+        created_by=new_id,
+    )
+
+    try:
+        db.add_all([user, profile])
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
     db.refresh(user)
     return user
 
@@ -112,8 +119,6 @@ def logout(response: Response):
     response.delete_cookie(key="access_token", path=attrs.get("path", "/"), domain=attrs.get("domain"))
     return {"message": "Successfully logged out"}
 
-
-from fastapi import Depends, HTTPException, Request, status
 
 def get_current_user(
     request: Request,
@@ -162,7 +167,6 @@ def get_current_user(
     return user
 
 
-
 @router.get("/me", response_model=UserResponse)
 def read_own_profile(current_user: User = Depends(get_current_user)):
     """
@@ -170,14 +174,9 @@ def read_own_profile(current_user: User = Depends(get_current_user)):
 
     This route uses the get_current_user dependency to ensure that only
     authenticated users can access it.
-
-    Args:
-        current_user: User object injected by the get_current_user dependency.
-
-    Returns:
-        The UserResponse object with the user's information.
     """
     return current_user
+
 
 def _cookie_attrs():
     is_prod = getattr(settings, "ENV", "dev").lower() in ("prod", "production")
@@ -191,6 +190,7 @@ def _cookie_attrs():
         attrs["samesite"] = "none"
         attrs["secure"] = True
     return attrs
+
 
 def _hash(password: str) -> str:
     return pwd_context.hash(password)
