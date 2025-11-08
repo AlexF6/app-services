@@ -149,37 +149,37 @@ def create_my_watchlist_item(
     return entity
 
 
-@router.put("/{watchlist_id}", response_model=WatchlistOut)
-def update_my_watchlist_item(
-    watchlist_id: UUID,
-    payload: WatchlistUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> Watchlist:
-    """
-    Updates your watchlist item. You can move it to another of your profiles and/or change content.
-    Prevents duplicates and ensures new profile (if provided) belongs to you.
-    """
-    entity = _ensure_watchlist_item_of_user(db, watchlist_id, current_user.id)
+# @router.put("/{watchlist_id}", response_model=WatchlistOut)
+# def update_my_watchlist_item(
+#     watchlist_id: UUID,
+#     payload: WatchlistUpdate,
+#     db: Session = Depends(get_db),
+#     current_user: User = Depends(get_current_user),
+# ) -> Watchlist:
+#     """
+#     Updates your watchlist item. You can move it to another of your profiles and/or change content.
+#     Prevents duplicates and ensures new profile (if provided) belongs to you.
+#     """
+#     entity = _ensure_watchlist_item_of_user(db, watchlist_id, current_user.id)
 
-    new_profile_id = payload.profile_id or entity.profile_id
-    new_content_id = payload.content_id or entity.content_id
+#     new_profile_id = payload.profile_id or entity.profile_id
+#     new_content_id = payload.content_id or entity.content_id
 
-    # Validate new targets
-    _ensure_profile_of_user(db, new_profile_id, current_user.id)
-    _ensure_content_exists(db, new_content_id)
+#     # Validate new targets
+#     _ensure_profile_of_user(db, new_profile_id, current_user.id)
+#     _ensure_content_exists(db, new_content_id)
 
-    # Check for duplicate only if the pair changes
-    if (new_profile_id != entity.profile_id) or (new_content_id != entity.content_id):
-        if _exists_watchlist_item(db, new_profile_id, new_content_id):
-            raise HTTPException(status_code=409, detail="Item already exists in watchlist")
-        entity.profile_id = new_profile_id
-        entity.content_id = new_content_id
+#     # Check for duplicate only if the pair changes
+#     if (new_profile_id != entity.profile_id) or (new_content_id != entity.content_id):
+#         if _exists_watchlist_item(db, new_profile_id, new_content_id):
+#             raise HTTPException(status_code=409, detail="Item already exists in watchlist")
+#         entity.profile_id = new_profile_id
+#         entity.content_id = new_content_id
 
-    entity.updated_by = current_user.id
-    db.commit()
-    db.refresh(entity)
-    return entity
+#     entity.updated_by = current_user.id
+#     db.commit()
+#     db.refresh(entity)
+#     return entity
 
 
 @router.delete("/{watchlist_id}", status_code=status.HTTP_204_NO_CONTENT)

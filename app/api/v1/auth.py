@@ -1,8 +1,6 @@
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from fastapi.responses import JSONResponse
-from app.core.utils import OAuth2PasswordBearerWithCookie
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, Security, status
+from fastapi.security import APIKeyCookie, OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from uuid import UUID, uuid4
 from app.core.database import get_db
@@ -15,7 +13,12 @@ from passlib.context import CryptContext
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
-oauth2_scheme = OAuth2PasswordBearerWithCookie(tokenUrl="/auth/token")
+cookie_scheme = APIKeyCookie(name="access_token", auto_error=False)
+
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="/auth/token",
+    auto_error=False
+)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -76,138 +79,88 @@ def register(user_create: UserCreate, db: Session = Depends(get_db)):
 @router.post("/token", response_model=MessageResponse)
 def login_for_access_token(
     response: Response,
-    form_data: OAuth2PasswordRequestForm = Depends(), 
+    form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
-    """
-    Authenticates a user and issues a JWT access token.
-
-    Verifies credentials (email and password) and the user's status (active, not deleted).
-    If authentication is successful, it generates an access token with a defined expiration.
-
-    Args:
-        response: FastAPI Response object to set cookies
-        form_data: Request data (username as email and password).
-        db: Dependency providing the database session.
-
-    Raises:
-        HTTPException: 401 Unauthorized if credentials are incorrect.
-        HTTPException: 403 Forbidden if the user is inactive or deleted.
-
-    Returns:
-        A success message. The access token is set as an HTTP-only cookie.
-    """
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user or not verify_password(form_data.password, user.password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="Incorrect username or password",
+                            headers={"WWW-Authenticate": "Bearer"})
     if not user.active:
         raise HTTPException(status_code=403, detail="User is inactive")
     if user.deleted_at is not None:
         raise HTTPException(status_code=403, detail="User is deleted")
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": str(user.id)},
-        expires_delta=access_token_expires,
-    )
-    
+    access_token = create_access_token(data={"sub": str(user.id)}, expires_delta=access_token_expires)
+
+    attrs = _cookie_attrs()
     response.set_cookie(
         key="access_token",
-        value=f"Bearer {access_token}",
-        httponly=True,
-        secure=True,
-        samesite="lax",
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        value=access_token,
+        max_age=int(access_token_expires.total_seconds()),
+        expires=int(access_token_expires.total_seconds()),
+        **attrs
     )
-
     return {"message": "Login successful"}
 
 
 @router.post("/logout", response_model=MessageResponse)
 def logout(response: Response):
-    """
-    Logs out the user by deleting the access token cookie.
-    
-    Args:
-        response: FastAPI Response object to delete the cookie
-        
-    Returns:
-        A message indicating successful logout
-    """
-    response.delete_cookie(key="access_token")
+    attrs = _cookie_attrs()
+    response.delete_cookie(key="access_token", path=attrs.get("path", "/"), domain=attrs.get("domain"))
     return {"message": "Successfully logged out"}
 
+
+from fastapi import Depends, HTTPException, Request, status
 
 def get_current_user(
     request: Request,
     db: Session = Depends(get_db),
-    token: str = Depends(oauth2_scheme)
-) -> User:
-    """
-    Dependency function to get the authenticated user from the JWT token.
-    Supports both Authorization header and HTTP-only cookies.
-
-    Decodes the token, validates the payload, fetches the user ID from the database,
-    and returns the corresponding User object. Also checks if user is active and not deleted.
-
-    Args:
-        request: FastAPI Request object to access cookies directly
-        token: The JWT token extracted from 'Authorization' header or cookie via oauth2_scheme
-        db: Dependency providing the database session.
-
-    Raises:
-        HTTPException: 401 Unauthorized if the token is invalid, expired, or the user doesn't exist.
-        HTTPException: 403 Forbidden if the user is inactive or deleted.
-
-    Returns:
-        The User object associated with the token.
-    """
-    credentials_exception = HTTPException(
+    bearer_token: str | None = Security(oauth2_scheme),
+    _cookie_present: str | None = Security(cookie_scheme),
+):
+    credentials_exc = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    if not token or token.lower() in ("undefined", "null"):
-        auth_cookie = request.cookies.get("access_token")
-        if not auth_cookie:
-            raise credentials_exception
-        token = auth_cookie[7:] if auth_cookie.startswith("Bearer ") else auth_cookie
+    token: str | None = None
+
+    if bearer_token and bearer_token.strip().lower() not in ("undefined", "null", ""):
+        token = bearer_token.strip()
+
+    if not token:
+        cookie_val = request.cookies.get("access_token")
+        if not cookie_val:
+            raise credentials_exc
+        token = cookie_val[7:] if cookie_val.startswith("Bearer ") else cookie_val
 
     payload = decode_access_token(token)
     if payload is None:
-        raise credentials_exception
+        raise credentials_exc
 
     sub = payload.get("sub")
-    if sub is None:
-        raise credentials_exception
+    if not sub:
+        raise credentials_exc
 
     try:
         user_id = UUID(sub)
-    except (ValueError, TypeError):
-        raise credentials_exception
+    except Exception:
+        raise credentials_exc
 
     user = db.query(User).filter(User.id == user_id).first()
-    if user is None:
-        raise credentials_exception
-
+    if not user:
+        raise credentials_exc
     if not user.active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User is inactive"
-        )
-    
+        raise HTTPException(status_code=403, detail="User is inactive")
     if user.deleted_at is not None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User is deleted"
-        )
+        raise HTTPException(status_code=403, detail="User is deleted")
 
     return user
+
 
 
 @router.get("/me", response_model=UserResponse)
@@ -225,3 +178,19 @@ def read_own_profile(current_user: User = Depends(get_current_user)):
         The UserResponse object with the user's information.
     """
     return current_user
+
+def _cookie_attrs():
+    is_prod = getattr(settings, "ENV", "dev").lower() in ("prod", "production")
+    attrs = {
+        "httponly": True,
+        "path": "/",
+        "samesite": "lax",
+        "secure": False,
+    }
+    if is_prod:
+        attrs["samesite"] = "none"
+        attrs["secure"] = True
+    return attrs
+
+def _hash(password: str) -> str:
+    return pwd_context.hash(password)
