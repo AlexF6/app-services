@@ -27,10 +27,7 @@ secrets:
     file: ./secrets/postgres_password.txt
 
 services:
-  # Reverse proxy con rate-limit
   nginx:
-    ports:
-      - "8080:8080"
     image: nginx:1.27-alpine
     <<: [ *security_hardening, *logging_rotated ]
     restart: unless-stopped
@@ -51,7 +48,6 @@ services:
       - SETGID
       - SETUID
 
-  # Base de la API
   api-base:
     build: .
     image: ${COMPOSE_PROJECT_NAME:-app}-base
@@ -64,13 +60,11 @@ services:
     networks: [ backend ]
     user: "1000:1000"
     tmpfs: [ /tmp ]
-    # recursos base (se heredan y/o se sobrescriben en api-serve)
     cpus: "1.00"
     mem_limit: "768m"
     volumes:
       - ./media:/app/media:rw
 
-  # API en producción (sin puertos publicados)
   api-serve:
     extends:
       service: api-base
@@ -79,7 +73,6 @@ services:
       --host 0.0.0.0
       --port 8000
       --workers 2
-    # recursos más generosos aquí
     cpus: "1.50"
     mem_limit: "1g"
     healthcheck:
@@ -89,7 +82,6 @@ services:
       retries: 5
       start_period: 20s
 
-  # Cloudflare QUICK tunnel (sin dominio)
   cloudflared:
     image: cloudflare/cloudflared:2025.10.1
     <<: [ *security_hardening, *logging_rotated ]
@@ -102,14 +94,11 @@ services:
     mem_limit: "128m"
     command: ["tunnel", "--no-autoupdate", "--url", "http://nginx:8080"]
 
-  # Postgres aislado
   db:
     image: postgres:16-alpine
-    # ⛔ NO heredamos x-security aquí (rompe permisos)
     <<: [ *logging_rotated ]
     restart: unless-stopped
     networks: [ backend ]
-    # Recursos razonables
     cpus: "1.00"
     mem_limit: "768m"
     environment:
