@@ -56,6 +56,10 @@ origins = [
     "moontube-front-p6xufjs5u-alexsanders-projects-2c34f6e4.vercel.app",
 ]
 
+@app.get("/health", include_in_schema=False)
+def health():
+    return {"ok": True}
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
