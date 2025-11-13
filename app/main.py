@@ -52,7 +52,13 @@ app.include_router(me_playbacks.router)
 origins = [
     "http://localhost:4200",
     "http://localhost:8000",
+    "moontube-front-git-feature-cfc73b-alexsanders-projects-2c34f6e4.vercel.app",
+    "moontube-front-p6xufjs5u-alexsanders-projects-2c34f6e4.vercel.app",
 ]
+
+@app.get("/health", include_in_schema=False)
+def health():
+    return {"ok": True}
 
 app.add_middleware(
     CORSMiddleware,
