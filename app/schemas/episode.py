@@ -1,3 +1,4 @@
+# app/schemas/episode.py
 from datetime import date
 from typing import Optional
 from uuid import UUID
@@ -13,16 +14,16 @@ class EpisodeBase(BaseModel):
     season_number: int = Field(..., ge=1, description="Season number (>=1)")
     episode_number: int = Field(..., ge=1, description="Episode number (>=1)")
     title: str = Field(..., max_length=200, description="Episode title")
-    duration_minutes: Optional[int] = Field(
-        None, ge=1, description="Episode duration in minutes"
-    )
+    duration_seconds: Optional[int] = Field(None, ge=1, description="Duration in seconds")
     release_date: Optional[date] = Field(None, description="Episode release date")
 
 
 class EpisodeCreate(EpisodeBase):
     """
+    
     Create a new episode associated with an existing content.
     """
+    video_url: str | None = None
 
 
 class EpisodeUpdate(BaseModel):
@@ -33,14 +34,16 @@ class EpisodeUpdate(BaseModel):
     season_number: Optional[int] = Field(None, ge=1)
     episode_number: Optional[int] = Field(None, ge=1)
     title: Optional[str] = Field(None, max_length=200)
-    duration_minutes: Optional[int] = Field(None, ge=1)
+    duration_seconds: Optional[int] = Field(None, ge=1)
     release_date: Optional[date] = None
+    video_url: str | None = None
 
 
 class EpisodeOut(EpisodeBase, AuditOut):
     id: UUID
 
     model_config = ConfigDict(from_attributes=True)
+    video_url: str | None = None
 
 
 class EpisodeListItem(BaseModel):
@@ -49,7 +52,7 @@ class EpisodeListItem(BaseModel):
     season_number: int
     episode_number: int
     title: str
-    duration_minutes: Optional[int] = None
+    duration_seconds: Optional[int] = None
     release_date: Optional[date] = None
 
     model_config = ConfigDict(from_attributes=True)

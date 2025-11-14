@@ -1,8 +1,8 @@
-"""cleanup_naming_and_translation
+"""local db
 
-Revision ID: eac3c878026e
+Revision ID: b4880c330a66
 Revises: 
-Create Date: 2025-10-01 13:50:59.529256
+Create Date: 2025-11-08 22:29:59.981520
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'eac3c878026e'
+revision: str = 'b4880c330a66'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -45,12 +45,14 @@ def upgrade() -> None:
     op.create_table('contents',
     sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('title', sa.String(length=200), nullable=False),
-    sa.Column('type', sa.Enum('MOVIE', 'SERIES', name='content_type'), nullable=False),
+    sa.Column('type', sa.Enum('MOVIE', 'SERIES', 'VIDEOS', name='content_type'), nullable=False),
     sa.Column('description', sa.Text(), nullable=True),
     sa.Column('release_year', sa.Integer(), nullable=True),
-    sa.Column('duration_minutes', sa.Integer(), nullable=True),
+    sa.Column('duration_seconds', sa.Integer(), nullable=True),
     sa.Column('age_rating', sa.String(length=10), nullable=True),
     sa.Column('genres', sa.Text(), nullable=True),
+    sa.Column('video_url', sa.Text(), nullable=True),
+    sa.Column('thumbnail', sa.Text(), nullable=True),
     sa.Column('created_by', sa.UUID(), nullable=False),
     sa.Column('updated_by', sa.UUID(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
@@ -104,8 +106,9 @@ def upgrade() -> None:
     sa.Column('season_number', sa.Integer(), nullable=False),
     sa.Column('episode_number', sa.Integer(), nullable=False),
     sa.Column('title', sa.String(length=200), nullable=False),
-    sa.Column('duration_minutes', sa.Integer(), nullable=True),
+    sa.Column('duration_seconds', sa.Integer(), nullable=True),
     sa.Column('release_date', sa.Date(), nullable=True),
+    sa.Column('video_url', sa.Text(), nullable=True),
     sa.Column('created_by', sa.UUID(), nullable=False),
     sa.Column('updated_by', sa.UUID(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
@@ -154,10 +157,12 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['created_by'], ['users.id'], ),
     sa.ForeignKeyConstraint(['profile_id'], ['profiles.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['updated_by'], ['users.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('profile_id', 'content_id', name='uq_watchlists_profile_content')
     )
     op.create_index(op.f('ix_watchlists_content_id'), 'watchlists', ['content_id'], unique=False)
     op.create_index(op.f('ix_watchlists_created_by'), 'watchlists', ['created_by'], unique=False)
+    op.create_index('ix_watchlists_profile_content', 'watchlists', ['profile_id', 'content_id'], unique=False)
     op.create_index(op.f('ix_watchlists_profile_id'), 'watchlists', ['profile_id'], unique=False)
     op.create_index(op.f('ix_watchlists_updated_by'), 'watchlists', ['updated_by'], unique=False)
     op.create_table('payments',
@@ -193,11 +198,15 @@ def upgrade() -> None:
     sa.Column('ended_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('progress_seconds', sa.Integer(), server_default=sa.text('0'), nullable=False),
     sa.Column('completed', sa.Boolean(), server_default=sa.text('false'), nullable=False),
-    sa.Column('device', sa.String(length=80), nullable=True),
+    sa.Column('device', sa.String(length=200), nullable=True),
+    sa.Column('duration_seconds', sa.Integer(), nullable=True),
+    sa.Column('last_seen_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('created_by', sa.UUID(), nullable=False),
     sa.Column('updated_by', sa.UUID(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+    sa.CheckConstraint('(duration_seconds IS NULL) OR (duration_seconds >= 0)', name='ck_playbacks_duration_nonneg'),
+    sa.CheckConstraint('progress_seconds >= 0', name='ck_playbacks_progress_nonneg'),
     sa.ForeignKeyConstraint(['content_id'], ['contents.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['created_by'], ['users.id'], ),
     sa.ForeignKeyConstraint(['episode_id'], ['episodes.id'], ondelete='CASCADE'),
@@ -205,22 +214,28 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['updated_by'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_index('ix_playbacks_content_episode', 'playbacks', ['content_id', 'episode_id'], unique=False)
     op.create_index(op.f('ix_playbacks_content_id'), 'playbacks', ['content_id'], unique=False)
     op.create_index(op.f('ix_playbacks_created_by'), 'playbacks', ['created_by'], unique=False)
     op.create_index(op.f('ix_playbacks_episode_id'), 'playbacks', ['episode_id'], unique=False)
     op.create_index(op.f('ix_playbacks_profile_id'), 'playbacks', ['profile_id'], unique=False)
+    op.create_index('ix_playbacks_profile_started', 'playbacks', ['profile_id', 'started_at'], unique=False)
     op.create_index(op.f('ix_playbacks_updated_by'), 'playbacks', ['updated_by'], unique=False)
+    op.create_index('uq_active_playback', 'playbacks', ['profile_id', 'device', 'content_id', 'episode_id'], unique=True, postgresql_where=sa.text('completed = false'))
     # ### end Alembic commands ###
 
 
 def downgrade() -> None:
     """Downgrade schema."""
     # ### commands auto generated by Alembic - please adjust! ###
+    op.drop_index('uq_active_playback', table_name='playbacks', postgresql_where=sa.text('completed = false'))
     op.drop_index(op.f('ix_playbacks_updated_by'), table_name='playbacks')
+    op.drop_index('ix_playbacks_profile_started', table_name='playbacks')
     op.drop_index(op.f('ix_playbacks_profile_id'), table_name='playbacks')
     op.drop_index(op.f('ix_playbacks_episode_id'), table_name='playbacks')
     op.drop_index(op.f('ix_playbacks_created_by'), table_name='playbacks')
     op.drop_index(op.f('ix_playbacks_content_id'), table_name='playbacks')
+    op.drop_index('ix_playbacks_content_episode', table_name='playbacks')
     op.drop_table('playbacks')
     op.drop_index(op.f('ix_payments_user_id'), table_name='payments')
     op.drop_index(op.f('ix_payments_updated_by'), table_name='payments')
@@ -229,6 +244,7 @@ def downgrade() -> None:
     op.drop_table('payments')
     op.drop_index(op.f('ix_watchlists_updated_by'), table_name='watchlists')
     op.drop_index(op.f('ix_watchlists_profile_id'), table_name='watchlists')
+    op.drop_index('ix_watchlists_profile_content', table_name='watchlists')
     op.drop_index(op.f('ix_watchlists_created_by'), table_name='watchlists')
     op.drop_index(op.f('ix_watchlists_content_id'), table_name='watchlists')
     op.drop_table('watchlists')

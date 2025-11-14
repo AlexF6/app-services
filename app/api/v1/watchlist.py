@@ -1,3 +1,4 @@
+# app/api/v1/watchlist.py
 from __future__ import annotations
 
 from datetime import datetime
@@ -5,8 +6,6 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from pydantic import BaseModel
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -41,26 +40,6 @@ def _ensure_profile_and_content(
         raise HTTPException(status_code=404, detail="Profile not found")
     if not db.get(Content, content_id):
         raise HTTPException(status_code=404, detail="Content not found")
-
-
-def _ensure_profile_belongs_to_user(
-    db: Session, profile_id: UUID, user_id: UUID
-) -> Profile:
-    """
-    Retrieves a profile and ensures it belongs to the specified user ID.
-
-    Raises:
-        HTTPException: 404 Not Found if profile does not exist.
-        HTTPException: 403 Forbidden if profile does not belong to the user.
-    """
-    prof = db.get(Profile, profile_id)
-    if not prof:
-        raise HTTPException(status_code=404, detail="Profile not found")
-    if prof.user_id != user_id:
-        raise HTTPException(
-            status_code=403, detail="Profile does not belong to current user"
-        )
-    return prof
 
 
 def _exists_watchlist_item(db: Session, profile_id: UUID, content_id: UUID) -> bool:
@@ -200,139 +179,7 @@ def delete_watchlist_item(
     """
     entity = db.get(Watchlist, watchlist_id)
     if not entity:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
-    db.delete(entity)
-    db.commit()
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
-profile_router = APIRouter(
-    prefix="/profiles/{profile_id}/watchlist", tags=["Watchlist (My Profile)"]
-)
-
-
-class WatchlistQuickAdd(BaseModel):
-    content_id: UUID
-
-
-@profile_router.get("", response_model=List[WatchlistListItem])
-def my_profile_watchlist(
-    profile_id: UUID,
-    db: Session = Depends(get_db),
-    me: User = Depends(get_current_user),
-    q_title: Optional[str] = Query(None, description="Search by content title (ilike)"),
-    limit: int = Query(50, ge=1, le=200),
-    offset: int = Query(0, ge=0),
-) -> List[WatchlistListItem]:
-    """
-    Lists the watchlist for the authenticated user's profile.
-
-    Raises:
-        HTTPException: 404 Not Found if profile does not exist.
-        HTTPException: 403 Forbidden if profile doesn't belong to the user.
-    """
-    _ensure_profile_belongs_to_user(db, profile_id, me.id)
-
-    q = db.query(Watchlist).filter(Watchlist.profile_id == profile_id)
-
-    if q_title:
-        like = f"%{q_title.lower()}%"
-        # Join is necessary to filter by Content's title
-        q = q.join(Content, Content.id == Watchlist.content_id).filter(
-            func.lower(Content.title).ilike(like)
-        )
-
-    q = q.order_by(Watchlist.added_at.desc(), Watchlist.created_at.desc())
-    return q.limit(limit).offset(offset).all()
-
-
-@profile_router.post(
-    "", response_model=WatchlistOut, status_code=status.HTTP_201_CREATED
-)
-def add_to_my_profile_watchlist(
-    profile_id: UUID,
-    payload: WatchlistQuickAdd,
-    db: Session = Depends(get_db),
-    me: User = Depends(get_current_user),
-) -> Watchlist:
-    """
-    Adds content to the authenticated user's profile watchlist. Idempotent: returns 409 if already exists.
-
-    Raises:
-        HTTPException: 404 Not Found if Profile or Content is invalid.
-        HTTPException: 403 Forbidden if profile doesn't belong to the user.
-        HTTPException: 409 Conflict if the item already exists in the watchlist.
-    """
-    _ensure_profile_belongs_to_user(db, profile_id, me.id)
-
-    _ensure_profile_and_content(db, profile_id, payload.content_id)
-
-    if _exists_watchlist_item(db, profile_id, payload.content_id):
-        raise HTTPException(status_code=409, detail="Item already exists in watchlist")
-
-    entity = Watchlist(
-        profile_id=profile_id,
-        content_id=payload.content_id,
-        created_by=me.id,
-    )
-    db.add(entity)
-    db.commit()
-    db.refresh(entity)
-    return entity
-
-
-@profile_router.delete("/{watchlist_id}", status_code=status.HTTP_204_NO_CONTENT)
-def remove_from_my_profile_watchlist(
-    profile_id: UUID,
-    watchlist_id: UUID,
-    db: Session = Depends(get_db),
-    me: User = Depends(get_current_user),
-) -> Response:
-    """
-    Removes a watchlist item by its ID from the authenticated user's profile watchlist.
-
-    Raises:
-        HTTPException: 404 Not Found if profile does not exist.
-        HTTPException: 403 Forbidden if profile doesn't belong to the user.
-    """
-    _ensure_profile_belongs_to_user(db, profile_id, me.id)
-
-    entity = db.get(Watchlist, watchlist_id)
-    # Check if item exists and belongs to the profile
-    if not entity or entity.profile_id != profile_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
-
-    db.delete(entity)
-    db.commit()
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
-@profile_router.delete(
-    "/by-content/{content_id}", status_code=status.HTTP_204_NO_CONTENT
-)
-def remove_by_content_from_my_profile_watchlist(
-    profile_id: UUID,
-    content_id: UUID,
-    db: Session = Depends(get_db),
-    me: User = Depends(get_current_user),
-) -> Response:
-    """
-    Removes a watchlist item by content_id from the authenticated user's profile watchlist (convenience endpoint). Does not fail if the item doesn't exist.
-
-    Raises:
-        HTTPException: 404 Not Found if profile does not exist.
-        HTTPException: 403 Forbidden if profile doesn't belong to the user.
-    """
-    _ensure_profile_belongs_to_user(db, profile_id, me.id)
-
-    entity = (
-        db.query(Watchlist)
-        .filter(Watchlist.profile_id == profile_id, Watchlist.content_id == content_id)
-        .first()
-    )
-    if not entity:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
-
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Watchlist item not found")
     db.delete(entity)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

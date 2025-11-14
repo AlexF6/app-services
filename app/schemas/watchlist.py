@@ -1,3 +1,4 @@
+# app/schemas/watchlist.py
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
@@ -14,6 +15,9 @@ class WatchlistBase(BaseModel):
     )
     content_id: UUID = Field(..., description="UUID of the content added to the list")
 
+class WatchlistCreateMe(BaseModel):
+    content_id: UUID = Field(...)
+    profile_id: Optional[UUID] = None
 
 class WatchlistCreate(WatchlistBase):
     """

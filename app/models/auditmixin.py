@@ -24,6 +24,7 @@ class ContentType(PyEnum):
 
     MOVIE = "MOVIE"
     SERIES = "SERIES"
+    VIDEOS = "VIDEOS"
 
 
 class SubscriptionStatus(PyEnum):
