@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from ast import pattern
 from typing import List, Optional
 from uuid import UUID
 
@@ -34,8 +35,8 @@ def list_contents(
     min_duration_seconds: Optional[int] = Query(None, ge=1, description="Min duration in seconds"),
     max_duration_seconds: Optional[int] = Query(None, ge=1, description="Max duration in seconds"),
     age_rating: Optional[str] = Query(None, max_length=10),
-    order_by: str = Query("created_at", regex="^(title|release_year|created_at)$"),
-    order_dir: str = Query("desc", regex="^(asc|desc)$"),
+    order_by: str = Query("created_at", pattern="^(title|release_year|created_at)$"),
+    order_dir: str = Query("desc", pattern="^(asc|desc)$"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ) -> List[ContentOut]:
