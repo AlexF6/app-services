@@ -22,76 +22,115 @@ La organización del proyecto sigue una estructura modular que facilita la escal
 
 ```plaintext
 APP-SERVICES/
-│── .env                         # Variables de entorno (configuración sensible)
-│── .env.example.txt             # Ejemplo de configuración para otros devs
-│── .gitignore                   # Archivos/carpetas que no deben subirse a git
-│── alembic.ini                  # Configuración de Alembic para migraciones DB
-│── docker-compose.yml           # Orquestador de contenedores (servicios DB, app)
-│── Dockerfile                   # Imagen de la app para Docker
-│── README.md                    # Documentación principal del proyecto
-│── requirements.txt             # Dependencias de Python
-│
-├── app/                         # Código principal de la aplicación
-│   │── main.py                  # Punto de entrada de la app FastAPI
-│   │── cli.py                   # Comandos de línea (scripts auxiliares)
-│   │
-│   ├── api/                     # Rutas de la API (endpoints)
-│   │   ├── v1/                  # Versionamiento de la API (v1 actual)
-│   │   │   ├── auth.py          # Autenticación y login
-│   │   │   ├── contents.py      # Rutas para contenidos (series, películas)
-│   │   │   ├── episodes.py      # Rutas para episodios
-│   │   │   ├── payments.py      # Rutas para pagos
-│   │   │   ├── plans.py         # Rutas para planes de suscripción
-│   │   │   ├── playbacks.py     # Rutas para reproducciones
-│   │   │   ├── profiles.py      # Rutas para perfiles de usuario
-│   │   │   ├── subscriptions.py # Rutas para suscripciones
-│   │   │   ├── users.py         # Rutas para usuarios
-│   │   │   ├── watchlist.py     # Rutas para listas de seguimiento
-│   │   │   └── __init__.py
-│   │   └── deps.py              # Dependencias comunes para los endpoints
-│   │
-│   ├── core/                    # Configuración central y utilidades globales
-│   │   ├── config.py            # Variables de configuración (env vars)
-│   │   ├── database.py          # Conexión con la base de datos
-│   │   ├── security.py          # Seguridad (JWT, hashing, permisos)
-│   │   └── __init__.py
-│   │
-│   ├── models/                  # Modelos de SQLAlchemy (tablas de la DB)
-│   │   ├── auditmixin.py        # Campos de auditoría (created_at, updated_at, etc.)
-│   │   ├── content.py
-│   │   ├── episode.py
-│   │   ├── payment.py
-│   │   ├── plan.py
-│   │   ├── playback.py
-│   │   ├── profile.py
-│   │   ├── subscription.py
-│   │   ├── user.py
-│   │   ├── watchlist.py
-│   │   └── __init__.py
-│   │
-│   ├── schemas/                 # Validaciones y serialización (Pydantic)
-│   │   ├── base.py              # Esquemas base reutilizables
-│   │   ├── content.py
-│   │   ├── episode.py
-│   │   ├── payment.py
-│   │   ├── plan.py
-│   │   ├── playback.py
-│   │   ├── profile.py
-│   │   ├── subscriptions.py
-│   │   ├── token.py             # Respuesta del login con JWT
-│   │   ├── user.py
-│   │   ├── watchlist.py
-│   │   └── __init__.py
-│
-├── migration/                   # Migraciones de base de datos (Alembic)
-│   ├── versions/                # Archivos de migración generados
-│   ├── env.py                   # Config principal de Alembic
-│   ├── README
-│   └── script.py.mako
-│
-└── scripts/                     # Scripts auxiliares
-    ├── plantuml.txt             # Diagrama de arquitectura (PlantUML)
-    └── seed_admin.py            # Script para crear usuario admin inicial
+.
+├── Dockerfile
+├── README.md
+├── alembic.ini
+├── app
+│   ├── __init__.py
+│   ├── api
+│   │   ├── deps.py
+│   │   └── v1
+│   │       ├── __init__.py
+│   │       ├── auth.py
+│   │       ├── contents.py
+│   │       ├── episodes.py
+│   │       ├── me_contents.py
+│   │       ├── me_episodes.py
+│   │       ├── me_payments.py
+│   │       ├── me_plans.py
+│   │       ├── me_playbacks.py
+│   │       ├── me_profiles.py
+│   │       ├── me_subscriptions.py
+│   │       ├── me_users.py
+│   │       ├── me_watchlist.py
+│   │       ├── payments.py
+│   │       ├── plans.py
+│   │       ├── playbacks.py
+│   │       ├── profiles.py
+│   │       ├── public_contents.py
+│   │       ├── subscriptions.py
+│   │       ├── users.py
+│   │       └── watchlist.py
+│   ├── cli.py
+│   ├── core
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   ├── database.py
+│   │   └── security.py
+│   ├── main.py
+│   ├── media
+│   │   ├── thumbs
+│   │   │   └── 
+│   │   └── videos
+│   │       ├── 
+│   ├── models
+│   │   ├── __init__.py
+│   │   ├── auditmixin.py
+│   │   ├── content.py
+│   │   ├── episode.py
+│   │   ├── payment.py
+│   │   ├── plan.py
+│   │   ├── playback.py
+│   │   ├── profile.py
+│   │   ├── subscription.py
+│   │   ├── user.py
+│   │   └── watchlist.py
+│   └── schemas
+│       ├── __init__.py
+│       ├── base.py
+│       ├── content.py
+│       ├── episode.py
+│       ├── payment.py
+│       ├── plan.py
+│       ├── playback.py
+│       ├── profile.py
+│       ├── subscriptions.py
+│       ├── token.py
+│       ├── user.py
+│       └── watchlist.py
+├── docker-compose.override.yml
+├── docker-compose.yml
+├── env.example.txt
+├── migration
+│   ├── README
+│   ├── env.py
+│   ├── script.py.mako
+│   └── versions
+│       └── b4880c330a66_local_db.py
+├── ops
+│   └── nginx
+│       ├── cloudflared
+│       │   ├── config.yml
+│       │   └── credentials.json
+│       ├── conf.d
+│       │   └── app.conf
+│       └── nginx.conf
+├── requirements.txt
+├── scripts
+│   ├── plantuml.txt
+│   └── seed_admin.py
+├── secrets
+│   ├── pgadmin_password.txt
+│   └── postgres_password.txt
+└── tests
+    ├── __init__.py
+    ├── api
+    │   ├── __init__.py
+    │   ├── test_auth.py
+    │   ├── test_contents.py
+    │   ├── test_me_contents.py
+    │   └── test_users.py
+    ├── conftest.py
+    ├── crud
+    │   ├── __init__.py
+    │   └── test_crud_user.py
+    ├── media
+    │   └── videos
+    └── security
+        ├── __init__.py
+        └── test_security.py
+
 ```
 
 ## Características principales
