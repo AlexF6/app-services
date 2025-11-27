@@ -19,7 +19,7 @@ class Content(AuditMixin, Base):
     type = Column(SAEnum(ContentType, name="content_type"), nullable=False)
     description = Column(Text, nullable=True)
     release_year = Column(Integer, nullable=True)
-    duration_seconds = Column(Integer, nullable=True)  # ← renamed
+    duration_seconds = Column(Integer, nullable=True)
     age_rating = Column(String(10), nullable=True)
     genres = Column(Text, nullable=True)
     video_url = Column(Text, nullable=True)
