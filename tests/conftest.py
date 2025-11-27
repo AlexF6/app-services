@@ -1,3 +1,4 @@
+# tests/conftest.py
 import pytest
 import re
 from sqlalchemy import create_engine, event
@@ -22,6 +23,12 @@ engine = create_engine(
     poolclass=StaticPool,
 )
 
+@event.listens_for(engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
 @event.listens_for(engine, "before_cursor_execute", retval=True)
 def fix_sql_for_sqlite(conn, cursor, statement, parameters, context, executemany):
     """
@@ -31,10 +38,9 @@ def fix_sql_for_sqlite(conn, cursor, statement, parameters, context, executemany
     3. Reemplaza true/false por 1/0 si es necesario (aunque SQLAlchemy suele manejar esto)
     """
     statement = re.sub(r"::[\w_]+", "", statement)
-    
     statement = statement.replace("gen_random_uuid()", "null")
-    
     return statement, parameters
+
 # ---------------------------------------------------
 
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
